@@ -2,6 +2,7 @@
 
 ## Task Status
 
+
 #### 1.  Branching Tagging PR
 1.1 Open your bootcamp repository in [Github](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023)
 
@@ -114,3 +115,194 @@ Confirm the `Merge` to complete the merging with `main` branch and `close the is
 
 
 #### 2.  Terraform CLI Refactor 
+
+2.1 Create a new feature branch in your Github repositiory.
+
+```txt
+Issue name: Refactor Terraform CLI
+Issue description: Fixing this issue with installing the Terraform CLI. We need to make sure it automatically installs to completion without user input.
+Label: bug
+```
+
+![create-issue](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/16-new-issue.png)
+
+2.2 Create a branch for this issue and launch it in Gitpod.
+
+2.3 Open the `.gitpod.yml` file. We need to figure out the issue with this file, i.e. why Terraform CLI is not getting installed without a user input.
+In order to troubleshoot, start executing each line of code from the `.gitpod.yml` in the `Terminal`. Keep an eye out for the line of code that prompts for user input.
+
+![troubleshoot](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/17-terrafomr-cli-installation.png)
+
+Now that we have figured out the issue, let us begin refactoring our code.
+Open the official [Terraform CLI installation documentation](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) on the Hashicorp website in your web browser.
+We will be using this documentation as a reference to configure our installation script.
+
+2.4 Create a new folder at the root level of the project and name it `bin`
+
+2.5 Create a bash shell script inside `bin` named `install_terraform_cli.sh`
+```sh
+#!/usr/bin/env bash
+
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
+
+wget -O- https://apt.releases.hashicorp.com/gpg | \
+gpg --dearmor | \
+sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+gpg --no-default-keyring \
+--keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+--fingerprint
+
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+sudo apt update
+
+sudo apt-get install terraform -y
+```
+
+2.6 Try executing this shell script in the terminal:
+`source ./bin/install_terraform_cli.sh`
+
+![exec-script](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/18-check-script-exec.png)
+
+Notice the output, the script was able to execute properly.
+> Note: a more common way to execute a shell script is simply executing it from the relative path, without using `source`. 
+Try executing this script this way.
+`./bin/install_terraform_cli`
+
+>You will notice an error of `permission denined`. The reason for this error is, that our script lacks `executable permissions`.
+Grant the script executable permissions using `chmod u+x ./bin/install_terraform_cli`
+
+Try executing the script again.
+`./bin/install_terraform_cli`
+This time it works! Good job!
+
+2.7 Now that we have a working terraform-cli installation script, let's configure it in our `.gitpod.yml` file.
+Edit the `.gitpod.yml` file as below:
+
+```yml
+tasks:
+  - name: terraform
+    before: |
+      source ./bin/install_terraform_cli
+  - name: aws-cli
+    env:
+      AWS_CLI_AUTO_PROMPT: on-partial
+    before: |
+      cd /workspace
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip awscliv2.zip
+      sudo ./aws/install
+      cd $THEIA_WORKSPACE_ROOT
+vscode:
+  extensions:
+    - amazonwebservices.aws-toolkit-vscode
+    - hashicorp.terraform
+```
+
+Essentially we are updating:
+
+~~init~~ -> before
+and calling our terraform-cli installation shell script.
+
+2.8 Update the documentation `README.md` with all the learnings from this activity.
+
+2.9 Stage and commit the updates. Sync the changes.
+> Make sure to include the issue number in the commit message.
+Example: `#3 refactor terraform cli into a bash script for .gitpod.yml`
+
+2.10 Back in Github repo, open a pull request for the #3 branch and merge it with the main branch.
+![2-pr](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/19-pull-request.png)
+
+![2-merge](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/20-merge.png)
+
+2.11 In Gitpod, tag and push the changes to `main`
+
+```sh
+git fetch
+git checkout main
+git pull
+git tag 0.3.0
+git push --tags
+```
+![add-tags](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/21-tags.png)
+
+2.12 Stop the Gitpod workspace.
+
+#### 3. Project Root Env Var
+
+3.1 Create a new issue 
+
+```txt
+Issue name: Project Root Env Var
+Issue description: Setup an environment variable for PROJECT__ROOT that can be referenced in our bash scripts.
+Label: documentation
+```
+3.2 Create a branch for this issue and launch it in Gitpod.
+
+3.3 Type `env` at the terminal to check all existing environment variables (Env Var).
+
+3.4 Create a `.env.example` file containing examples of the env vars that will be used in this project.
+```txt
+PROJECT_ROOT='/workspace/terraform-beginner-bootcamp-2023'
+
+```
+3.4 Create a env var in Gitpod for our `PROJECT_ROOT` :
+
+`gp env PROJECT_ROOT='/workspace/terraform-beginner-bootcamp-2023'`
+
+![env-var](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/22-proj-root-env-var.png)
+
+3.5 Update the ./bin/install_terraform_cli shell script to reference the newly created env var
+
+```sh
+#!/usr/bin/env bash
+
+cd /workspace
+
+sudo apt-get update && sudo apt-get install -y gnupg software-properties-common curl
+
+wget -O- https://apt.releases.hashicorp.com/gpg | \
+gpg --dearmor | \
+sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+gpg --no-default-keyring \
+--keyring /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+--fingerprint
+
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+sudo tee /etc/apt/sources.list.d/hashicorp.list
+
+sudo apt update
+
+sudo apt-get install terraform -y
+
+cd $PROJECT_ROOT
+```
+
+3.6 Update the documentation for this task in `README.MD` .
+
+3.7 Stage, commit and sync the changes.
+> Make sure to add the issue nummber #5 in the commit message
+
+3.8 Stop the Gitpod workspace and re-launch it. Verify if our PROJECT_ROOT env var persists.
+
+3.9 Back in github, create and merge the branch `5-project-root-environment-variable` with the `main` branch.
+![pr](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/23-pr.png)
+
+3.10 In Gitpod, tag and push the changes to `main`.
+
+```sh
+git fetch
+git checkout main
+git pull
+git tag 0.3.0
+git push --tags
+```
+
+![add-tags](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/24-add-tags.png)
+
+3.1  Stop the `Gitpod workspace`.
