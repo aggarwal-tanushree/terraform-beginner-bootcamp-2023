@@ -1,9 +1,10 @@
 # Week 0 — Prep Week Journal
 
 ## Task Status
+[Branching Tagging PR](#1.-branching-tagging-pr)
 
 
-#### 1.  Branching Tagging PR
+### 1.  Branching Tagging PR
 1.1 Open your bootcamp repository in [Github](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023)
 
 1.2 Navigate to the `Issues` tab and click on `New Issues`
@@ -114,7 +115,7 @@ Confirm the `Merge` to complete the merging with `main` branch and `close the is
 ![stop_gitpod](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/008ed87ac39ddcbf21eaa6c7f03a9650d1c605b8/journal/assets/week-0/15-stop-gitpod-workspace.png)
 
 
-#### 2.  Terraform CLI Refactor 
+### 2.  Terraform CLI Refactor 
 
 2.1 Create a new feature branch in your Github repositiory.
 
@@ -231,7 +232,7 @@ git push --tags
 
 2.12 Stop the Gitpod workspace.
 
-#### 3. Project Root Env Var
+### 3. Project Root Env Var
 
 3.1 Create a new issue 
 
@@ -305,4 +306,413 @@ git push --tags
 
 ![add-tags](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31bb5c4d8cc3f8b36ceafdca71cad2cd9e095447/journal/assets/week-0/24-add-tags.png)
 
-3.1  Stop the `Gitpod workspace`.
+3.11  Stop the `Gitpod workspace`.
+
+### 4. AWS CLI Refactor
+4.1 Create an `issue`
+```txt
+Name: refactor aws cli script
+description: 
+- [] Refactor AWS CLI into bash script
+- [] Provide env var examples for AWS CLI requirements
+- [] set our env vars for AWS using gp env
+label: enhancement
+```
+
+![create-issue](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/28-create-issue.png)
+
+4.2 Create a branch for the issue and launch in Gitpod
+
+4.3 Under `bin` directory, create a new file named `install_aws_cli`
+
+```sh
+#!/usr/bin/env bash
+
+cd /workspace
+
+rm -f '/workspace/awscliv2.zip'
+rm -rf '/workspace/aws'
+
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+aws sts get-caller-identity
+
+cd $PROJECT_ROOT
+```
+
+4.4 Update the `.gitpod.yml` file with the `./bin/install_aws_cli` script name as below:
+Since we have created a new script `./bin/install_aws_cli` containing the steps for AWS CLI installation, we do not need to maintain the installation steps in our `.gitpod.yml`, we can simplify this file by calling our bash script from here.
+
+Replace 
+```yml
+  - name: aws-cli
+    env:
+      AWS_CLI_AUTO_PROMPT: on-partial
+    before: |
+      cd /workspace
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+      unzip awscliv2.zip
+      sudo ./aws/install
+      cd $THEIA_WORKSPACE_ROOT
+```
+with -> 
+
+```yml
+	  - name: aws-cli
+		env:
+		  AWS_CLI_AUTO_PROMPT: on-partial
+		before: |
+		  source ./bin/install_aws_cli
+```
+
+4.5 Grant the script executable permisssions `chmod u+x ./bin/install_aws_cli`
+
+4.6 Execute the script to verify that it executes and is able to install the AWS CLI.
+
+4.7 Check if any AWS credentials are configured, by executing the following command at the terminal:
+`aws sts get-caller-identity`
+
+A blank line is returned by the command. This indicates that there aren't any credentails set. 
+Next, we will be creating these credentails.
+
+4.8 Login to the `AWS Management Console` and navigate to [IAM](https://us-east-1.console.aws.amazon.com/iamv2/home?region=eu-central-1#/home)
+
+Create a new [IAM user](https://us-east-1.console.aws.amazon.com/iamv2/home?region=eu-central-1#/users) for the bootcamp.
+
+User: `terraform-beginner-bootcamp`
+Permissions: `AdministratorAccess (or add it to your Admin group)`
+
+![create-iam-user](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/25-create-iam-user.png)
+
+![add-perms-to-iam-user](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/26-create-iam-user.png)
+
+4.9 Create `access keys` for the newly created IAM user.
+
+![create-access-key](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/27-create-access-keys.png)
+
+4.10 Back in Gitpod workspace, update the `.env.example` file with the examples of required AWS credentails.
+
+```txt
+AWS_ACCESS_KEY_ID='AKIAIOSFODNN7EXAMPLE'
+AWS_SECRET_ACCESS_KEY='wAbcdEFGhiJkl/M7NOPQR/sTuvWXYzEXAMPLEKEY'
+AWS_DEFAULT_REGION='eu-central-1'
+```
+
+4.11 Set these credentials in Gitpod execting the commands at the terminal:
+```sh
+gp env AWS_ACCESS_KEY_ID='AKIAIOSFODNN7EXAMPLE'
+gp env AWS_SECRET_ACCESS_KEY='wAbcdEFGhiJkl/M7NOPQR/sTuvWXYzEXAMPLEKEY'
+gp env AWS_DEFAULT_REGION='eu-central-1'
+```
+Verify your [Gitpod variables](https://gitpod.io/user/variables) list to check if they were successfully set.
+
+4.12 Update `README.md` with the learnings.
+
+4.13 Stage, Commit and sync the changes. Stop the Gitpod environment and relaunch it.
+
+4.14 Check if the AWS CLI is installed and if our credentails persisted.
+`aws sts get-caller-identity`
+
+![check-identity](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/29-check-identity.png)
+
+4.15 Create pull request and merge the change to main branch.
+
+![issue-pr](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/31-pr-and-merge.png)
+
+4.16 Add the tags.
+
+```sh
+git fetch
+git checkout main
+git pull
+git tag 0.4.0
+git push --tags
+```
+
+![add-tags](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/30-add-tags.png)
+
+4.17 Stop the Gitpod workspace.
+
+### 5. Random Terraform Provider Init Plan Apply
+5.1 Create an `issue`
+```txt
+Name: Terraform Random Bucket Name
+Description:
+- [] explore the terraform registry
+- [] install the terraform random provider
+- [] run terraform init
+- [] generate out a random bucket name
+- [] output the random bucket name to outputs
+- [] run terraform plan
+- [] run terraform apply
+
+label: good-first-issue
+```
+
+5.2 Create a branch for the issue and launch in Gitpod
+5.3 Open **main.tf** file and paste the Terraform **provider code** from the [Terraform Registry website](https://registry.terraform.io/providers/hashicorp/random/latest) -> Use Provider
+We will be using this provider to generate random things in our Project.
+> Note: these steps are being performed just to gain inderstanding of Terraform providers. Random provider is not directly related to our project implementation.
+
+
+```tf
+terraform {
+  required_providers {
+    random = {
+      source = "hashicorp/random"
+      version = "3.5.1"
+    }
+  }
+}
+
+provider "random" {
+  # Configuration options
+}
+```
+
+5.4 Next, we create a **resource** for this **provider**. Copy the code from the [documentation](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string)
+
+```tf
+resource "random_string" "random" {
+  length           = 16
+  special          = false
+}
+```
+We will modify it to generate our S3 bucket name name.
+
+5.5 We wish to output the S3 bucket name, for this we refer the [output documentation](https://developer.hashicorp.com/terraform/language/values/outputs)
+
+5.6 Update the `main.tf` file as below:
+```tf
+terraform {
+  required_providers {
+    random = {
+      source = "hashicorp/random"
+      version = "3.5.1"
+    }
+  }
+}
+
+provider "random" {
+  # Configuration options
+}
+
+resource "random_string" "bucket_name" {
+  length   = 16
+  special  = false
+}
+
+output "random_bucket_name" {
+  value = random_string.bucket_name.result
+}
+
+```
+
+5.7 Next, open the **terraform terminal** in Gitpod and execute `terraform`
+This will confirm that our Terraform CLI has been properly installed. 
+> In case of issues, troubleshoot and fix. DO NOT proceed to the next step if the terraform CLI is not working!
+
+5.8 Run `terraform init`
+> Notice that a new file **.terraform.lock.hcl** has been created, this file is maintained automatically by "terraform init". Any manual edits may be lost in future updates.
+A folder named `terraform` has also been geenrated. This stores the terraform `provider` binaries, that have been downloaded from the Terraform registry by `terraform init`.
+
+![terraform-init](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/32-terraform-init.png)
+
+5.9 Next, run `terraform plan` to generate the change set, i.e set of resources that will be created when we run `terraform apply`.
+
+5.10 Finally, run `terraform apply --auto-approve` which will create our resources defined in our **main.tf**.
+
+5.11 To view the output, we can execute the command:
+`terraform output`
+
+Or to view a specific output (in this case the S3 bucket name) :
+`terraform output random_bucket_name`
+
+![terraform-output](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/33-terraform-output.png)
+
+5.12 Update the documentation with the learnings `README.md`
+
+5.13 Stage, Commit and Sync the changes.
+> Don't forget to reference the issue number #9
+
+5.14 Create a pull request and merge `9-terraform-random-bucket-name` into `main` branch.
+
+5.15 Add tags
+```sh
+git checkout main
+git pull
+git tag 0.5.0
+git push --tags
+```
+![add-tags](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/34-add-tags.png)
+
+5.16 Stop Gitpod
+
+
+### 6. Terraform Provider S3 bucket
+6.1 Create an `issue`
+```txt
+Name: Simple S3 Bucket
+Description:
+- [] Define an S3 Bucket in Terraform
+- [] Use the random resource string for the name
+- [] Install the AWS Terraform Provider
+- [] Configure AWS Provider
+- [] Terraform Apply and Terraform Destroy
+
+label: enhancement
+```
+
+6.2 Create a branch for the issue and launch in Gitpod
+6.3 At the terminal in Gitpod, execute `aws s3 ls`.
+> If our environment is setup correctly, this should be able to connect to our AWS acoount and fetch the names of S3 buckets available there.
+
+6.4 Run `terraform init` and `terraform apply` to download the terraform provider binaries and create the resources defined in our `main.tf`
+
+6.5 Open the [Terraform Registry](https://registry.terraform.io/providers/hashicorp/aws/latest) in a web browser and copy the **provider** code for **AWS**.  
+Then navigate to **aws_s3_bucket** resource  [Terraform Registry](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket).
+
+We will be incorporating these in our `main.tf`
+
+>Important pointer: A Terraform project can contain only **one required_providers block**
+
+6.6 Update the `main.tf` file to incude the AWS provider.
+
+```tf
+terraform {
+  required_providers {
+    random = {
+      source = "hashicorp/random"
+      version = "3.5.1"
+    }
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.16.2"
+    }
+  }
+}
+
+provider "aws" {
+}
+provider "random" {
+  # Configuration options
+}
+
+# https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+resource "random_string" "bucket_name" {
+  length   = 32
+  special  = false
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "example" {
+  bucket = random_string.bucket_name.result
+}
+
+output "random_bucket_name" {
+  value = random_string.bucket_name.result
+}
+
+```
+
+6.7 Run `terraform init` again, so the AWS provider binaries are downloaded to our environment.
+> Whenever a new provider is added to a project, `terraform init` needs to be executed, so the required binaries are downloaded in our environment.
+
+![provider-init](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/35-aws-provider.png)
+
+>Important:
+Terraform needs our AWS credentials in order to create the defined AWS resource (S3 bucket in this case).
+These credentails can be defined in the `main.tf` file, but this is **not recommended**, since the main.tf will be commited to our code repository. The better way to safely use credentials is to set them as env vars.
+Terraform flow for reading credentials:
+(1) check config file _if not present, then_ -> (2) read from env vars
+
+
+6.8 Execute `terraform plan`, followed by `terraform apply --auto-approve`
+Notice the error while creating the `S3 bucket`
+This is because **S3 naming convention does not allow _uppercase_ letters in the bucket names.**
+
+![s3-error](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/36-s3-error.png)
+
+Refer the [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) for all rules relating to the S3 bucket naming.
+
+6.9 We need to exclude _uppercase letters_ from our random S3 bucket name geenrator.
+Let's update the code in `main.tf`:
+
+```tf
+terraform {
+  required_providers {
+    random = {
+      source = "hashicorp/random"
+      version = "3.5.1"
+    }
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.16.2"
+    }
+  }
+}
+
+provider "aws" {
+}
+provider "random" {
+  # Configuration options
+}
+
+# https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+resource "random_string" "bucket_name" {
+  length   = 32
+  lower = true
+  upper = false
+  special  = false
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "example" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = random_string.bucket_name.result
+}
+
+output "random_bucket_name" {
+  value = random_string.bucket_name.result
+}
+```
+
+6.10 Run the plan and apply commands again. 
+```hcl
+terraform plan
+terraform apply --auto-approve
+```
+
+Did the bucket get created?
+
+Yes!
+
+![s3-bucket-created](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/37-bucket-created.png)
+
+Verify the same by checking in the AWS Management Console
+![s3-bucket-available](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/38-bucket-verified.png)
+
+6.11 After the verification, we are good to proceed with the resource deletion.
+``terraform destroy --auto-aprove`
+
+![resources-destroyed](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/39-s3-destroyed.png)
+
+6.12 Stage, Commit and Sync the changes.
+
+6.13 Create a pull request and merge `11-simple-s3-bucket` with the `main` branch.
+
+6.14 Add tags
+```sh
+git checkout main
+git pull
+git tag 0.6.0
+git push --tags
+```
+
+6.15 Stop the Gitpod workspace.
+![tagging](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/40-tags.png)
+
+### 7. Terraform Cloud and Terraform Login
