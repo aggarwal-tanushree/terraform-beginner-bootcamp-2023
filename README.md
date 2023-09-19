@@ -143,11 +143,11 @@ We can print an env var using echo eg. `echo $HELLO`
 
 When you open up new bash terminals in VSCode it will not be aware of env vars that you have set in another window.
 
-To make Env Vars to persist across all future bash terminals that are open, you need to set env vars in your ![bash profile](https://linuxhint.com/simple-guide-to-create-open-edit-bash-profile/). eg. `.bash_profile`
+To make Env Vars to persist across all future bash terminals that are open, you need to set env vars in your [bash profile](https://linuxhint.com/simple-guide-to-create-open-edit-bash-profile/). eg. `.bash_profile`
 
 #### Persisting Env Vars in Gitpod
 
-We can persist env vars into gitpod by storing them in you account's Gitpod Environement ![Variable list](https://gitpod.io/user/variables)
+We can persist env vars into gitpod by storing them in you account's Gitpod Environement [Variable list](https://gitpod.io/user/variables)
 https://www.gitpod.io/docs/configure/projects/environment-variables
 
 ```
@@ -158,3 +158,28 @@ All future workspaces launched will set the env vars for all bash terminals open
 
 You can also set env vars in the `.gitpod.yml` but this can only contain non-senstive env vars.
 
+### AWS CLI Installation
+
+AWS CLI is installed for the project via the bash script [`./bin/install_aws_cli`](./bin/install_aws_cli)
+
+
+[Getting Started Install (AWS CLI)](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+[AWS CLI Env Vars](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html)
+
+We can check if our AWS credentials is configured correctly by running the following AWS CLI command:
+
+```sh
+aws sts get-caller-identity
+```
+
+If it is succesful you should see a json payload return that looks like this:
+
+```json
+{
+    "UserId": "ABCDEF12ZPVHJ5WIJ5KR",
+    "Account": "123456789012",
+    "Arn": "arn:aws:iam::123456789012:user/terraform-beginner-bootcamp"
+}
+```
+
+We will need to generate AWS CLI credentials for the [IAM User](https://us-east-1.console.aws.amazon.com/iamv2/home?region=eu-central-1#/users) in order to enable the user's access to AWS CLI.
