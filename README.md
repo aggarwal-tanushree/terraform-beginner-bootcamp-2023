@@ -222,6 +222,13 @@ This will run a plan and pass the changeset to be execute by terraform. Apply sh
 
 If we want to automatically approve an apply we can provide the auto approve flag eg. `terraform apply --auto-approve`
 
+#### Terraform Destroy
+
+`teraform destroy`
+This will destroy resources.
+
+You can also use the auto approve flag to skip the approve prompt. eg. `terraform destroy --auto-approve`
+
 ### Terraform Lock Files
 
 `.terraform.lock.hcl` contains the locked versioning for the providers or modulues that should be used with this project.
@@ -244,3 +251,9 @@ If you lose this file, you lose knowning the state of your infrastructure.
 
 `.terraform` directory contains binaries of Terraform providers.
 
+### AWS Credentials
+Terraform needs our AWS credentials in order to create the defined AWS resource (S3 bucket in this case).
+These credentails can be defined in the `main.tf` file, but this is **not recommended**, since the main.tf will be commited to our code repository. The better way to safely use credentials is to set them as `env vars`.
+
+#### Terraform flow for reading credentials:
+(1) check config file _if not present, then_ -> (2) read from env vars
