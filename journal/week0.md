@@ -3,8 +3,8 @@
 ## Task Status
 | Topic | Status |
 | --- | --- | 
-| [Branching Tagging PR](#1.-branching-tagging-pr) | <ul><li> [x] </li></ul> |
-| [Terraform CLI Refactor](#2.-terraform-cli-refactor) | <ul><li> [x] </li></ul> |
+| [Branching Tagging PR](#1-branching-tagging-pr) | <ul><li> [x] </li></ul> |
+| [Terraform CLI Refactor](#2-terraform-cli-refactor) | <ul><li> [x] </li></ul> |
 | [Project Root Env Var](#3.-project-root-env-var) | <ul><li> [x] </li></ul> |
 | [AWS CLI Refactor](#4.-aws-cli-refactor) | <ul><li> [x] </li></ul> |
 | [Random Terraform Provider Init Plan Apply](#5.-random-terraform-provider-init-plan-apply) | <ul><li> [x] </li></ul> |
