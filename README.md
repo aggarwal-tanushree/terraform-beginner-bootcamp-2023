@@ -314,3 +314,11 @@ Provide the following code (replace your token in the file):
 ``````
 
 We have automated this workaround with the following bash script  [bin/generate_tfrc_credentials](bin/generate_tfrc_credentials)
+
+### TF alias
+We wish to set an alias for terraform, so instead of typing `terraform` to execute each command, we will be able to use `tf`. example: `tf init`, `tf apply` etc.
+We will be setting this alias in our bash profile `~/.bash_profile` as below:
+
+`alias tf="terraform"`
+
+>The `~/.bash_profile` file is read automatically when a new shell is loaded. So if we wish to execute it in the current shell, we can do so by executing `./bash_profile``
