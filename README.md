@@ -63,16 +63,16 @@ This bash script is located here: [./bin/install_terraform_cli](./bin/install_te
 - This allow us an easier to debug and execute manually Terraform CLI install
 - This will allow better portablity for other projects that need to install Terraform CLI.
 
-#### Shebang Considerations
+#### Shebang 
 
-A Shebang (prounced Sha-bang) tells the bash script what program that will interpet the script. eg. `#!/bin/bash`
+A Shebang (prounced Sha-bang) tells the bash script what program that will interpet the script. eg. `#!/bin/bash` or `#!/usr/bin/env bash`
 
-ChatGPT recommended this format for bash: `#!/usr/bin/env bash`
+Purpose of Shebang:
 
 - for portability for different OS distributions 
 -  will search the user's PATH for the bash executable
 
-https://en.wikipedia.org/wiki/Shebang_(Unix)
+[More on Shebang_(Unix)](https://en.wikipedia.org/wiki/Shebang_(Unix))
 
 #### Execution Considerations
 
@@ -100,25 +100,36 @@ chmod 744 ./bin/install_terraform_cli
 
 https://en.wikipedia.org/wiki/Chmod
 
+#### Bash aliases
+Bash allows setting shortcuts for long commands, these are referred to as `alias`. 
+[Aliases](https://tldp.org/LDP/abs/html/aliases.html) can be defined in the bash profile `~/.bash_profile` as below:
+
+`alias tf="terraform"`
+
+> The `~/.bash_profile` file is read automatically when a new shell is loaded. So if we wish to execute it in the current shell, we can do so by executing `./bash_profile`
+
+
+
 ### Github Lifecycle (Before, Init, Command)
 
-We need to be careful when using the Init because it will not rerun if we restart an existing workspace. Check out the lifecycle details at the below orl:
+We need to be careful when using the Init because it will not rerun if we restart an existing workspace. Check out the lifecycle details at the below url:
 
 https://www.gitpod.io/docs/configure/workspaces/tasks
 
-### Working Env Vars
+### Working with Environment Variables a.k.a env vars
 
 #### env command
 
-In Shell, we can list out all Enviroment Variables (Env Vars) using the `env` command
+- In Shell, we can list out all Enviroment Variables (Env Vars) using the `env` command
 
-We can filter specific env vars using grep eg. `env | grep AWS_`
+- Using `grep` along with `env` allows filtering. eg. `env | grep AWS_ will return all env vars defined in our environment matching the pattern `AWS_`
+- One important use case for setting env vars in projects is defining paths for various files. Setting env vars is a good practice and a reusable way of setting paths, and avoiding hardcoding path in code.
 
 #### Setting and Unsetting Env Vars
 
-In the terminal we can set using `export HELLO='world`
+In the terminal we can set using `export AWS_DEFAULT_REGION="eu-central-1"
 
-In the terrminal we unset using `unset HELLO`
+In the terrminal we unset using `unset AWS_DEFAULT_REGION`
 
 We can set an environemnt variables temporarily when just running a command, as below:
 
@@ -160,7 +171,7 @@ You can also set env vars in the `.gitpod.yml` but this can only contain non-sen
 
 ### AWS CLI Installation
 
-AWS CLI is installed for the project via the bash script [`./bin/install_aws_cli`](./bin/install_aws_cli)
+[AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) is installed for the project via the bash script [`./bin/install_aws_cli`](./bin/install_aws_cli)
 
 
 [Getting Started Install (AWS CLI)](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
@@ -193,7 +204,7 @@ Terraform sources their providers and modules from the Terraform registry which 
 - **Providers** is an interface to APIs that will allow to create resources in terraform.
 - **Modules** are a way to make large amount of terraform code modular, portable and sharable.
 
-[Randon Terraform Provider](https://registry.terraform.io/providers/hashicorp/random)
+[Random Terraform Provider](https://registry.terraform.io/providers/hashicorp/random)
 
 > `main.tf` is a Terraform root level module.
 
@@ -237,11 +248,9 @@ The Terraform Lock File **should be committed** to your Version Control System (
 
 ### Terraform State Files
 
-`.terraform.tfstate` contain information about the current state of your infrastructure.
+Running terraform apply generates a file named `.terraform.tfstate`. This file contains information about the current state of your infrastructure.
 
-This file **should not be commited** to your VCS.
-
-This file can contain sensentive data.
+This file **should not be commited** to your VCS, as the file can contain sensentive data.
 
 If you lose this file, you lose knowning the state of your infrastructure.
 
@@ -258,17 +267,47 @@ These credentails can be defined in the `main.tf` file, but this is **not recomm
 #### Terraform flow for reading credentials:
 (1) check config file _if not present, then_ -> (2) read from env vars
 
+#### Error while implementing Random Provider
+S3 buckets have specific naming conventions. During our implementation we ran into an error, since our random bucket name generator allowed `UPPERCASE alphabets`. To tackle this, we explicitely denied the presence of uppercase letters in the code.
+```tf
+provider "random" {
+  # Configuration options
+}
+
+# https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/string
+resource "random_string" "bucket_name" {
+  length   = 32
+  lower = true
+  upper = false
+  special  = false
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "example" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = random_string.bucket_name.result
+}
+
+output "random_bucket_name" {
+  value = random_string.bucket_name.result
+}
+
+```
+Refer the [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html) for all rules relating to the S3 bucket naming.
+
 ### Terraform Cloud Basics
 
 > In this bootcamp we will be utilizing the Terraform cloud free tier, which allows upto 500 resources free per month.
 [Terraform Cloud Pricing](https://www.hashicorp.com/products/terraform/pricing)
-![pricing](41-TFC-pricing.png)
+
+![pricing](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/7f19b23b71dbc5815dfeec76897bbc8ba19b8996/journal/assets/week-0/41-TFC-pricing.png)
 
 #### Terraform Workspace v/s Terraform Project
 - **Workspace** : A container in the Terraform Cloud for infrastructure state, configuration and settings.
 - **Project** : A conceptual way to group Terraform workspaces together, which server a particular purpose/goal.
 
-![workspace-vs-proj](42-TFC-workspace-vs-project.png
+![workspace-vs-proj](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/7f19b23b71dbc5815dfeec76897bbc8ba19b8996/journal/assets/week-0/42-TFC-workspace-vs-project.png)
 
 #### Types of Terraform Workspace Workflows
 Version control workflow: Stores Terraform configs in a Git repo and triggers runs  based on PRs. (This related to the Gitpods flow, and not in scope of the bootcamp.)
