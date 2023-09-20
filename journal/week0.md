@@ -1,9 +1,20 @@
 # Week 0 — Prep Week Journal
 
 ## Task Status
-[Branching Tagging PR](#1.-branching-tagging-pr)
+| Topic | Status |
+| --- | --- | 
+| [Branching Tagging PR](#1.-branching-tagging-pr) | <ul><li> [x] </li></ul> |
+| [Terraform CLI Refactor](#2.-terraform-cli-refactor) | <ul><li> [x] </li></ul> |
+| [Project Root Env Var](#3.-project-root-env-var) | <ul><li> [x] </li></ul> |
+| [AWS CLI Refactor](#4.-aws-cli-refactor) | <ul><li> [x] </li></ul> |
+| [Random Terraform Provider Init Plan Apply](#5.-random-terraform-provider-init-plan-apply) | <ul><li> [x] </li></ul> |
+| [Terraform Provider S3 bucket](#6.-terraform-provider-s3-bucket) | <ul><li> [x] </li></ul> |
+| [Terraform Cloud and Terraform Login](#7.-terraform-cloud-and-terraform-login) | <ul><li> [x] </li></ul> |
+| [Terraform Login Workaround](#8.-terraform-login-workaround) | <ul><li> [ ] </li></ul> |
+| [TF Alias](#9.-tf-alias) | <ul><li> [ ] </li></ul> |
+| [Project Validation](#10.-project-validation) | <ul><li> [ ] </li></ul> |
 
-
+## Personal Documentation
 ### 1.  Branching Tagging PR
 1.1 Open your bootcamp repository in [Github](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023)
 
@@ -716,3 +727,128 @@ git push --tags
 ![tagging](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/40-tags.png)
 
 ### 7. Terraform Cloud and Terraform Login
+7.1 Create an `issue`
+```txt
+Issue name: Terraform Cloud Backend
+Desc:
+- [] Configure Terraform Cloud Backend
+- [] Workaround for Terraform Login
+- [] Migrate our local state to remote state
+- [] Create a new Project and Workspace in Terraform Cloud
+ 
+Label: Enhancement
+```
+
+7.2 Create a branch for the issue and launch in Gitpod
+
+7.3 Login to Gitpod and initialize your Terraform providers and create the resources like we have been doing in the previous steps.
+
+```tf
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+
+7.4 Login to your [Terraform Cloud Account](https://app.terraform.io/app)
+
+7.5 Create a new `Project` with the name: `terraform-beginner-bootcamp-2023`
+
+![tfc-project](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/43-tfc-project.png)
+
+7.6 Inside the `terraform-beginner-bootcamp-2023` project, create a new workspace 
+	- Select workspacr type: CLI-driven workflow
+	- workspace name: terra-house-1
+	- workspace description: Terrahouse infrastructure that will connect to TerraTowns.
+
+![tfc-workspace](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/46-save-token-2.png)
+
+7.7 Back in Gitpod workspace, update the `main.tf` code to include the `remote cloud provider`
+
+```tf
+terraform {
+  cloud {
+    organization = "aggarwaltanushree"
+    workspaces {
+      name = "terra-house-1"
+    }
+```
+
+
+7.8 Then execute `terraform init` at the terminal.
+Notice the error.
+
+![init-error](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/45-init-error.png)
+
+> Since we are trying to connect to Terraform cloud (app.terraform.io), we first need to configure our credentails, which can be done by `terraform login`
+
+When promted, enter `yes`
+Shift+p to view the available options.
+![save-token](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/45-save-token.png)
+
+Copy the document path `https://app.terraform.io/app/settings/tokens?source=terraform-login` and create the token there.
+Generate the `token` for one day. Copy and path where the token needs to be stored. 
+
+![save-tokens](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/46-save-token-2.png)
+
+Create the credentials file and paste the token into it.
+
+```sh
+touch /home/gitpod/.terraform.d/credentails.trfc.json
+open /home/gitpod/.terraform.d/credentails.trfc.json
+```
+
+![credentials](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/47-save-token-in-credential.png)
+
+7.9 Once the credentials have been saved, we can proceed with `terraform init`.
+At this stage we have the option to save our workspace terraform state (i.e our `terraform.tfstate` json file) into the terraform cloud workspace. Enter `yes` when prompted to do so.
+
+![terraform-init-cloud](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/48-terraform-init-cloud.png)
+
+7.10 Back in your Terraform Workspace in TFC, verify if our resources and outputs are visible.
+
+![terraform-init-cloud-resources](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/49-terraform-init-cloud-resources.png)
+
+7.11 Execute `terraform plan` and `terraform apply`
+
+![run-plan-creds-error](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/51-run-plan-creds-error.png)
+
+> We run into an error! Open the detailed log in your TF cloud a/c to see the details.
+The error indicates that we do not have AWS credentials configured!
+You may now wonder, that we did this already while configuring the AWS CLI. You are correct.
+However, this time around we are running in the _remote state_. We need to configure the AWS credentials as `env vars` in our Terraform cloud a/c as well.
+
+Let's get on with it!
+
+Navigate to [variable sets](https://app.terraform.io/app/aggarwaltanushree/settings/varsets) and create a new `variable set` for your AWS credentials.
+
+> Tips:
+> - make sure you set these as env vars and not TF vars
+> - since these are sensitive credentials, enable the `sensitive` checkbox.
+> - set scope only as necessay, i.e our `terraform-beginner-bootcamp-2023` project instead of `global` scope.
+
+![set-tfc-aws-env-vars](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/52-tfc-aws-env-vars.png)
+
+7.12  Execute `terraform plan` again, this time it should work. Next, execute `terraform apply`
+
+![run-plan](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6e9373c9ed6a2b1be62aee1bfb5595bc50bdac3e/journal/assets/week-0/50-run-plan.png)
+
+7.13 Stage, commit and sync the changes
+
+7.14 PR and Merge `13-terraform-cloud-backend` to `main`
+
+7.15 Add Tags
+
+```sh
+git checkout main
+git pull
+git tag 0.7.0
+git push --tags
+```
+7.16. Stop the Gitpod Workspace
+
+#### 8. Terraform Login Workaround
+
+#### 9. TF Alias
+
+#### 10. Project Validation
+    
