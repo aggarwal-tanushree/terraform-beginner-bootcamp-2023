@@ -1,5 +1,6 @@
 # Terraform Beginner Bootcamp 2023
 
+# Week-0 Learnings
 ## Semantic Versioning
 
 This project is going to use Semantic versioning for its tagging.
@@ -361,3 +362,7 @@ We will be setting this alias in our bash profile `~/.bash_profile` as below:
 `alias tf="terraform"`
 
 >The `~/.bash_profile` file is read automatically when a new shell is loaded. So if we wish to execute it in the current shell, we can do so by executing `./bash_profile``
+
+# Detailed step-by-step documentation
+The complete step-by-step manual for week-0 is available [here](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/b652a3bdd02574dc026f3fab198aa20d51700f85/journal/week0.md)
+-------------------------------------------------------------------------------------------------------------
