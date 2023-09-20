@@ -3,19 +3,19 @@
 ## Task Status
 | Topic | Status |
 | --- | --- | 
-| [Branching Tagging PR](#1-branching-tagging-pr) | <ul><li> [x] </li></ul> |
-| [Terraform CLI Refactor](#2-terraform-cli-refactor) | <ul><li> [x] </li></ul> |
-| [Project Root Env Var](#3.-project-root-env-var) | <ul><li> [x] </li></ul> |
-| [AWS CLI Refactor](#4.-aws-cli-refactor) | <ul><li> [x] </li></ul> |
-| [Random Terraform Provider Init Plan Apply](#5.-random-terraform-provider-init-plan-apply) | <ul><li> [x] </li></ul> |
-| [Terraform Provider S3 bucket](#6.-terraform-provider-s3-bucket) | <ul><li> [x] </li></ul> |
-| [Terraform Cloud and Terraform Login](#7.-terraform-cloud-and-terraform-login) | <ul><li> [x] </li></ul> |
-| [Terraform Login Workaround](#8.-terraform-login-workaround) | <ul><li> [ ] </li></ul> |
-| [TF Alias](#9.-tf-alias) | <ul><li> [ ] </li></ul> |
-| [Project Validation](#10.-project-validation) | <ul><li> [ ] </li></ul> |
+| [Branching Tagging PR](#branching-tagging-pr) | <ul><li> [x] </li></ul> |
+| [Terraform CLI Refactor](#terraform-cli-refactor) | <ul><li> [x] </li></ul> |
+| [Project Root Env Var](#project-root-env-var) | <ul><li> [x] </li></ul> |
+| [AWS CLI Refactor](#aws-cli-refactor) | <ul><li> [x] </li></ul> |
+| [Random Terraform Provider Init Plan Apply](#random-terraform-provider-init-plan-apply) | <ul><li> [x] </li></ul> |
+| [Terraform Provider S3 bucket](#terraform-provider-s3-bucket) | <ul><li> [x] </li></ul> |
+| [Terraform Cloud and Terraform Login](#terraform-cloud-and-terraform-login) | <ul><li> [x] </li></ul> |
+| [Terraform Login Workaround](#terraform-login-workaround) | <ul><li> [ ] </li></ul> |
+| [TF Alias](#tf-alias) | <ul><li> [ ] </li></ul> |
+| [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
 
 ## Personal Documentation
-### 1.  Branching Tagging PR
+1. ### Branching Tagging PR
 1.1 Open your bootcamp repository in [Github](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023)
 
 1.2 Navigate to the `Issues` tab and click on `New Issues`
@@ -126,7 +126,7 @@ Confirm the `Merge` to complete the merging with `main` branch and `close the is
 ![stop_gitpod](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/008ed87ac39ddcbf21eaa6c7f03a9650d1c605b8/journal/assets/week-0/15-stop-gitpod-workspace.png)
 
 
-### 2.  Terraform CLI Refactor 
+2. ### Terraform CLI Refactor 
 
 2.1 Create a new feature branch in your Github repositiory.
 
@@ -243,7 +243,7 @@ git push --tags
 
 2.12 Stop the Gitpod workspace.
 
-### 3. Project Root Env Var
+3. ### Project Root Env Var
 
 3.1 Create a new issue 
 
@@ -319,7 +319,7 @@ git push --tags
 
 3.11  Stop the `Gitpod workspace`.
 
-### 4. AWS CLI Refactor
+4. ### AWS CLI Refactor
 4.1 Create an `issue`
 ```txt
 Name: refactor aws cli script
@@ -446,7 +446,7 @@ git push --tags
 
 4.17 Stop the Gitpod workspace.
 
-### 5. Random Terraform Provider Init Plan Apply
+5. ### Random Terraform Provider Init Plan Apply
 5.1 Create an `issue`
 ```txt
 Name: Terraform Random Bucket Name
@@ -562,7 +562,7 @@ git push --tags
 5.16 Stop Gitpod
 
 
-### 6. Terraform Provider S3 bucket
+6. ### Terraform Provider S3 bucket
 6.1 Create an `issue`
 ```txt
 Name: Simple S3 Bucket
@@ -726,7 +726,7 @@ git push --tags
 6.15 Stop the Gitpod workspace.
 ![tagging](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/dc4ebb49d2bcd9fbdc912835b3fb3754cd270e21/journal/assets/week-0/40-tags.png)
 
-### 7. Terraform Cloud and Terraform Login
+7. ### Terraform Cloud and Terraform Login
 7.1 Create an `issue`
 ```txt
 Issue name: Terraform Cloud Backend
@@ -846,9 +846,9 @@ git push --tags
 ```
 7.16. Stop the Gitpod Workspace
 
-#### 8. Terraform Login Workaround
+8. #### Terraform Login Workaround
 
-#### 9. TF Alias
+9. #### TF Alias
 
-#### 10. Project Validation
+10. #### Project Validation
     
