@@ -257,3 +257,58 @@ These credentails can be defined in the `main.tf` file, but this is **not recomm
 
 #### Terraform flow for reading credentials:
 (1) check config file _if not present, then_ -> (2) read from env vars
+
+### Terraform Cloud Basics
+
+> In this bootcamp we will be utilizing the Terraform cloud free tier, which allows upto 500 resources free per month.
+[Terraform Cloud Pricing](https://www.hashicorp.com/products/terraform/pricing)
+![pricing](41-TFC-pricing.png)
+
+#### Terraform Workspace v/s Terraform Project
+- **Workspace** : A container in the Terraform Cloud for infrastructure state, configuration and settings.
+- **Project** : A conceptual way to group Terraform workspaces together, which server a particular purpose/goal.
+
+![workspace-vs-proj](42-TFC-workspace-vs-project.png
+
+#### Types of Terraform Workspace Workflows
+Version control workflow: Stores Terraform configs in a Git repo and triggers runs  based on PRs. (This related to the Gitpods flow, and not in scope of the bootcamp.)
+CLI-driven workflow: Triggers remote Terraform runs from local command line. (example: Gitpod). This is the type we will be using in our bootcamp.
+API-driven workflow: It is an advanced option for programmatic coding, it integrates Terraform with a larger pipeline using Terraform API. (also not in scope of the bootcamp.)
+
+#### terraform login and credentails.trfc.json file
+`terraform login`
+The terraform [login](https://developer.hashicorp.com/terraform/cli/commands/login) command can be used to automatically obtain and save an API token for Terraform Cloud, Terraform Enterprise, or any other host that offers Terraform services
+
+`credentails.trfc.json`
+- Terraform will obtain an API token and save it in plain text in a local CLI configuration file called credentials.tfrc.json. 
+- When you run terraform login, it will explain specifically where it intends to save the API token and give you a chance to cancel if the current configuration is not as desired.
+- The path in Gitpod is `/home/gitpod/.terraform.d/credentails.trfc.json`
+
+### Issues with Terraform Cloud Login and Gitpod Workspace
+
+When attempting to run `terraform login` it will launch bash a wiswig view to generate a token. However it does not work expected in Gitpod VsCode in the browser.
+
+The workaround is manually generate a token in Terraform Cloud
+
+```
+https://app.terraform.io/app/settings/tokens?source=terraform-login
+```
+
+Then create open the file manually here:
+
+```sh
+touch /home/gitpod/.terraform.d/credentials.tfrc.json
+open /home/gitpod/.terraform.d/credentials.tfrc.json
+```
+
+Provide the following code (replace your token in the file):
+
+```json
+{
+  "credentials": {
+    "app.terraform.io": {
+      "token": "YOUR-TERRAFORM-CLOUD-TOKEN"
+    }
+  }
+}
+``````
