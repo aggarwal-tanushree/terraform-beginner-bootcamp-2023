@@ -10,8 +10,8 @@
 | [Random Terraform Provider Init Plan Apply](#random-terraform-provider-init-plan-apply) | <ul><li> [x] </li></ul> |
 | [Terraform Provider S3 bucket](#terraform-provider-s3-bucket) | <ul><li> [x] </li></ul> |
 | [Terraform Cloud and Terraform Login](#terraform-cloud-and-terraform-login) | <ul><li> [x] </li></ul> |
-| [Terraform Login Workaround](#terraform-login-workaround) | <ul><li> [ ] </li></ul> |
-| [TF Alias](#tf-alias) | <ul><li> [ ] </li></ul> |
+| [Terraform Login Workaround](#terraform-login-workaround) | <ul><li> [x] </li></ul> |
+| [TF Alias](#tf-alias) | <ul><li> [x] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
 
 ## Personal Documentation
@@ -847,8 +847,198 @@ git push --tags
 7.16. Stop the Gitpod Workspace
 
 8. #### Terraform Login Workaround
+8.1 Create the issue.
+```txt
+Issue name: Generate TFRC
+Issue Description:
+- [] Create a bash script using ChatGPT to create trfc file.
+- [] Create new token for 30 days in Terraform Cloud
+
+Issue label: enhancement
+```
+
+8.2 Create a branch for the issue and launch in Gitpod.
+
+8.3 Add an example for `TERRAFORM_CLOUD_TOKEN` in `.env.example1
+TERRAFORM_CLOUD_TOKEN='YOUR SECRET TERRAFORM CLOUD TOKEN'
+
+8.4 Login to terraform cloud settings and create a token for the duration of this bootcamp.
+![terratowns-token](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/09c04945dc73718a185c7c16a50781f447ea05be/journal/assets/week-0/53-terratowns-token.png)
+
+8.5  Set this is Gitpod env variable:
+
+`gp env TERRAFORM_CLOUD_TOKEN='YOUR SECRET TERRAFORM CLOUD TOKEN'`
+
+`export TERRAFORM_CLOUD_TOKEN='YOUR SECRET TERRAFORM CLOUD TOKEN'`
+
+8.6 Next, we will create a bash script that will refer our variable.
+- Create script `generate_tfrc_credentials` under the `bin` folder
+```sh
+#!/usr/bin/env bash
+
+# Define target directory and file
+TARGET_DIR="/home/gitpod/.terraform.d"
+TARGET_FILE="${TARGET_DIR}/credentials.tfrc.json"
+
+# Check if TERRAFORM_CLOUD_TOKEN is set
+if [ -z "$TERRAFORM_CLOUD_TOKEN" ]; then
+    echo "Error: TERRAFORM_CLOUD_TOKEN environment variable is not set."
+    exit 1
+fi
+
+# Check if directory exists, if not, create it
+if [ ! -d "$TARGET_DIR" ]; then
+    mkdir -p "$TARGET_DIR"
+fi
+
+# Generate credentials.tfrc.json with the token
+cat > "$TARGET_FILE" << EOF
+{
+  "credentials": {
+    "app.terraform.io": {
+      "token": "$TERRAFORM_CLOUD_TOKEN"
+    }
+  }
+}
+EOF
+
+echo "${TARGET_FILE} has been generated."
+
+```
+
+- Grant the script executable permissions `chmod u+x ./bin/generate_tfrc_credentials`
+
+- Execute the script `./bin/generate_tfrc_credentials`
+
+![tfrc-creds](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/09c04945dc73718a185c7c16a50781f447ea05be/journal/assets/week-0/54-tfrc-creds.png)
+
+8.7 Update the `.gitpod.yml` file to call out script.
+`source ./bin/generate_tfrc_credentials`
+
+The final file should look like:
+```yml
+tasks:
+  - name: terraform
+    before: |
+      source ./bin/install_terraform_cli
+      source ./bin/generate_tfrc_credentials
+  - name: aws-cli
+    env:
+      AWS_CLI_AUTO_PROMPT: on-partial
+    before: |
+      source ./bin/install_aws_cli
+
+vscode:
+  extensions:
+    - amazonwebservices.aws-toolkit-vscode
+    - hashicorp.terraform
+```
+
+
+8.8 Stage, commit and sync the changes
+
+8.9 PR and Merge `13-terraform-cloud-backend` to `main`
+
+8.10 Add Tags
+
+```sh
+git checkout main
+git pull
+git tag 0.8.0
+git push --tags
+```
+8.11 Stop the Gitpod Workspace
+
 
 9. #### TF Alias
+
+9.1 Create an `issue`
+```txt
+Issue name: TF alias for TerraformTerraform Cloud Backend
+Desc:
+[ ] Set an alias for terraform to be tf in our bash profile.
+ 
+Label: Enhancement
+```
+
+9.2 Create a branch for the issue and launch in Gitpod
+
+9.3 We wish to set an alias for terraform, so instead of typing `terraform` to execute each command, we will be able to use `tf`. example: `tf init`, `tf apply` etc.
+We will be setting this alias in our bash profile `~/.bash_profile` as below:
+
+`alias tf="terraform"`
+
+> The `~/.bash_profile` file is read automatically when a new shell is loaded. So if we wish to execute it in the current shell, we can do so by executing `./bash_profile`
+
+9.4 Now test it by executing `tf`
+
+![tf-alias](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/09c04945dc73718a185c7c16a50781f447ea05be/journal/assets/week-0/55-tf-alias.png)
+
+> We have created the alias in our bash profile file. `./bash_profile` is a file read by the `bash terminal`. We want the file to be read even for programmatic access, this can be achieved by creating a shell script.
+
+ 9.5 Create script `set_tf_alias` inside `bin`
+
+```sh
+#!/usr/bin/env bash
+
+# Check if the alias already exists in the .bash_profile
+grep -q 'alias tf="terraform"' ~/.bash_profile
+
+# $? is a special variable in bash that holds the exit status of the last command executed
+if [ $? -ne 0 ]; then
+    # If the alias does not exist, append it
+    echo 'alias tf="terraform"' >> ~/.bash_profile
+    echo "Alias added successfully."
+else
+    # Inform the user if the alias already exists
+    echo "Alias already exists in .bash_profile."
+fi
+
+# Optional: source the .bash_profile to make the alias available immediately
+source ~/.bash_profile
+```
+
+9.6 Grant the script executable permissions `chmod u+x ./bin/set_tf_alias`. 
+
+9.7 Execute the script `./bin/set_tf_alias`
+
+![tfrc-alias-script](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/09c04945dc73718a185c7c16a50781f447ea05be/journal/assets/week-0/56-tfrc-alias-script.png)
+
+9.8 Incorporate the script into `.gitpod.yml`
+```yml
+tasks:
+  - name: terraform
+    before: |
+      source ./bin/set_tf_alias
+      source ./bin/install_terraform_cli
+      source ./bin/generate_tfrc_credentials
+  - name: aws-cli
+    env:
+      AWS_CLI_AUTO_PROMPT: on-partial
+    before: |
+      source ./bin/set_tf_alias
+      source ./bin/install_aws_cli
+
+vscode:
+  extensions:
+    - amazonwebservices.aws-toolkit-vscode
+    - hashicorp.terraform
+```
+
+9.9 Stage, commit and sync the changes
+
+9.10 PR and Merge `17-tf-alias-for-terraform` to `main`
+
+9.11 Add Tags
+
+```sh
+git checkout main
+git pull
+git tag 0.9.0
+git push --tags
+```
+9.12. Stop the Gitpod Workspace
+
 
 10. #### Project Validation
     
