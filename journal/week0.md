@@ -60,7 +60,7 @@ The Terraform CLI installation instructions have changed due to gpg keyring chan
 [Install Terraform CLI](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
 
 
-### Considerations for Linux Distribution
+## Considerations for Linux Distribution
 
 This project is built against Ubunutu.
 Please consider checking your Linux Distrubtion and change accordingly to distrubtion needs. 
@@ -144,8 +144,8 @@ Bash allows setting shortcuts for long commands, these are referred to as `alias
 
 
 
-### Github Lifecycle (Before, Init, Command)
-
+### Gitpod Lifecycle
+**(Before, Init, Command)**
 We need to be careful when using the Init because it will not rerun if we restart an existing workspace. Check out the lifecycle details at the below url:
 
 https://www.gitpod.io/docs/configure/workspaces/tasks
@@ -298,10 +298,10 @@ If you lose this file, you lose knowning the state of your infrastructure.
 Terraform needs our AWS credentials in order to create the defined AWS resource (S3 bucket in this case).
 These credentails can be defined in the `main.tf` file, but this is **not recommended**, since the main.tf will be commited to our code repository. The better way to safely use credentials is to set them as `env vars`.
 
-#### Terraform flow for reading credentials:
+#### Terraform flow for reading credentials
 (1) check config file _if not present, then_ -> (2) read from env vars
 
-#### Error while implementing Random Provider
+### Error while implementing Random Provider
 S3 buckets have specific naming conventions. During our implementation we ran into an error, since our random bucket name generator allowed `UPPERCASE alphabets`. To tackle this, we explicitely denied the presence of uppercase letters in the code.
 ```tf
 provider "random" {
@@ -337,7 +337,7 @@ Refer the [documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/
 
 ![pricing](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/7f19b23b71dbc5815dfeec76897bbc8ba19b8996/journal/assets/week-0/41-TFC-pricing.png)
 
-#### Terraform Workspace v/s Terraform Project
+#### Terraform Workspace versus Terraform Project
 - **Workspace** : A container in the Terraform Cloud for infrastructure state, configuration and settings.
 - **Project** : A conceptual way to group Terraform workspaces together, which server a particular purpose/goal.
 
@@ -348,7 +348,7 @@ Version control workflow: Stores Terraform configs in a Git repo and triggers ru
 CLI-driven workflow: Triggers remote Terraform runs from local command line. (example: Gitpod). This is the type we will be using in our bootcamp.
 API-driven workflow: It is an advanced option for programmatic coding, it integrates Terraform with a larger pipeline using Terraform API. (also not in scope of the bootcamp.)
 
-#### terraform login and credentails.trfc.json file
+#### Terraform login and credentails.trfc.json file
 `terraform login`
 The terraform [login](https://developer.hashicorp.com/terraform/cli/commands/login) command can be used to automatically obtain and save an API token for Terraform Cloud, Terraform Enterprise, or any other host that offers Terraform services
 
