@@ -41,5 +41,6 @@ _Diagram copyrights: Andrew Brown from ExamPro.co_
   - Under issue `#19Create TOC Readme ` and PR `#19 create toc readme` we did the following:
     - We restructured the documentation into `journal/<week.md>`
     - We moved our week-0 notes from `./README.md` to `./journal/week-0.md`
+    - Created `./journal/week-1.md` for week-1 documentation
 
 3. ## 
