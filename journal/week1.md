@@ -80,7 +80,6 @@ $ tree minimal-module/
 ├── outputs.tf
 ```
 
-
 Complete structure example:
 
 ```txt
@@ -162,7 +161,7 @@ resoure_group_location = "us-east-1"
 ```tf
 terraform plan -var-file="dev.tfvars"
 terraform apply -var-file="dev.tfvars"
-``
+```
 
 #### auto.tfvars
 - Can have any name, but must end with an `.auto.tfvars` extension.
@@ -170,7 +169,60 @@ terraform apply -var-file="dev.tfvars"
 
 
 ### Order of terraform input variables
-![input-precedence](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/04391377d8501643fece4e04ef8b97a9fd51dcf0/journal/assets/week-1/TF-var-precedence.gif)
+<img src="https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/04391377d8501643fece4e04ef8b97a9fd51dcf0/journal/assets/week-1/TF-var-precedence.gif"  width="40%" height="30%">
+
+
+
+## Dealing With Configuration Drift
+
+## What is Configuration drift?
+- One challenge when managing infrastructure as code is `drift`.
+- `Drift` is the term for when the _real-world state_ of your infrastructure differs from the _state defined in your configuration_. 
+- The Terraform state file `terraform.tfstate`  is the record of all resources Terraform manages. Since in our project, we are not commiting the TF state file to our repo, it is lost when we close our environment. The next time our environemnt is launched, TF is unable to determine which resources exist and what is their defined state.
+
+## What happens if we lose our `terraform.tfstate` state file?
+
+If you lose your statefile, you most likley have to tear down all your cloud infrastructure manually.
+
+You can use terraform port but it won't for all Cloud resources. You need check the terraform providers documentation for which resources support import.
+
+### Fix Missing Resources with Terraform Import
+
+`terraform import aws_s3_bucket.bucket bucket-name`
+
+[Terraform Import](https://developer.hashicorp.com/terraform/cli/import)
+[AWS S3 Bucket Import](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket#import)
+Command to import S3 bucket: `terraform import aws_s3_bucket.<bucket-variable-name> <AWS-bucket_name>`
+example: ``tf import aws_s3_bucket.example <bucket_name>``
+
+### Terraform import block TFv1.5.0
+https://www.hashicorp.com/blog/terraform-1-5-brings-config-driven-import-and-checks?source=post_page-----a6ca245a7daf--------------------------------
+The import block takes two required arguments one optional argument.:
+`to` - The instance address this resource will have in your state file. for example, you can provide a resource id for your Azure resource.
+`id` - A string with the import ID of the resource in your terraform configuration file.
+`provider` (optional) - An optional custom resource provider, This is useful when you’re using multiple providers.
+
+example:
+```tf
+import {
+  # ID of the cloud resource
+  # Check provider documentation for importable resources and format
+  id = “i-abcd1234”
+ 
+  # Resource address
+  to = aws_instance.example
+}
+```
+
+
+### Fix Manual Configuration
+
+- when someone goes and delete or modifies cloud resource manually through ClickOps. 
+
+- If we run `terraform plan` it with attempt to put our infrstraucture back into the expected state fixing Configuration Drift
+
+Further reading: https://developer.hashicorp.com/terraform/tutorials/state/resource-drift
+
 
 
 
@@ -318,3 +370,96 @@ cp $PROJECT_ROOT/terraform.tfvars.example $PROJECT_ROOT/terraform.tfvars
 2.16 Create a PR and Merge this branch `21-restructure-root-module` to the `main` branch.
 
 2.17 Issue tags to the `main branch` as `1.1.0`
+
+3. ## Terraform Import and Configuration Drift
+3.1 Create an `Issue`
+```txt
+Configuration Drift
+
+[ ] use terraform import
+[ ] purposely cause configuration drift via clickops, and correct state.
+Label: bug
+```
+
+3.2 Create a branch and launch in Gitpod
+
+3.3 Run `tf init` to intialize our TF env
+
+3.4 Since we do not have the state file `terraform.tfstate`, we will need to `import` the lost resources manually.
+
+`tf import aws_s3_bucket.example <bucket_name>`
+`tf import random_string.bucket_name <bucket_name>`
+
+3.5 Run `tf plan` to see if it is able to determine our resource state now.
+Notice, that it works fine for the S3 bucket, but not for the `random`.
+
+> So, this is where the use of `random` ends in our project. It worked great for our initial hands-on practice, but is no longer needed going forward.
+
+3.6 Delete the `random` provider from `providers.tf` 
+
+```tf
+random = {
+      source = "hashicorp/random"
+      version = "3.5.1"
+    }
+```
+
+3.7 Define a bucket name variable name, condition and validation in `variables.tf`
+
+```tf
+variable "bucket_name" {
+  description = "The name of the S3 bucket"
+  type        = string
+
+  validation {
+    condition     = (
+      length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63 && 
+      can(regex("^[a-z0-9][a-z0-9-.]*[a-z0-9]$", var.bucket_name))
+    )
+    error_message = "The bucket name must be between 3 and 63 characters, start and end with a lowercase letter or number, and can contain only lowercase letters, numbers, hyphens, and dots."
+  }
+}
+```
+
+3.8.1 Create a var example for the bucket name in `terraform.tfvars.example`
+
+```tf
+bucket_name="<enter-bucket-name>"
+```
+
+
+3.8.2 Add this var to `terraform.tfvars` file with the real bucket name.
+
+
+3.9 Update the S3 bucket name to `website_bucket` in `main.tf`, and delete the `random_string` resource block from the file.
+
+```tf
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "website_bucket" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = var.bucket_name
+
+  tags = {
+    UserUuid = var.user_uuid
+  }
+}
+```
+
+3.10 Update the `outputs.tf` with the updated bucket name.
+
+```tf
+output "bucket_name" {
+  value = aws_s3_bucket.website_bucket.bucket
+}
+```
+
+3.11 Run `tf plan` if it works, follow it with `tf apply`
+
+3.12 Update the documentation
+
+3.13 Stage, commit and sync the changed to Github
+
+3.14  Create a PR and Merge this branch `23-configuration-drift` to the `main` branch.
+
+3.15 Issue tags to the `main branch` as `1.2.0`
