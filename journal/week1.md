@@ -207,7 +207,7 @@ example:
 import {
   # ID of the cloud resource
   # Check provider documentation for importable resources and format
-  id = “i-abcd1234”
+  id = "i-abcd1234"
  
   # Resource address
   to = aws_instance.example
@@ -223,6 +223,98 @@ import {
 
 Further reading: https://developer.hashicorp.com/terraform/tutorials/state/resource-drift
 
+
+## Fix using Terraform Refresh
+
+```sh
+terraform apply -refresh-only -auto-approve
+```
+
+## Terraform Modules
+
+### Terraform Module Structure
+
+It is recommend to place modules in a `modules` directory when locally developing modules but you can name it whatever you like.
+
+```txt
+$ tree complete-module/
+.
+├── README.md
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── ...
+├── modules/
+│   ├── nestedA/
+│   │   ├── README.md
+│   │   ├── variables.tf
+│   │   ├── main.tf
+│   │   ├── outputs.tf
+│   ├── nestedB/
+│   ├── .../
+├── examples/
+│   ├── exampleA/
+│   │   ├── main.tf
+│   ├── exampleB/
+│   ├── .../
+```
+
+
+### Passing Input Variables
+
+- We can pass input variables to our module.
+- The module has to declare the terraform variables in its own `variables.tf`
+```tf
+module "terrahouse_aws" {
+  source = "./modules/terrahouse_aws"
+  user_uuid = var.user_uuid
+  bucket_name = var.bucket_name
+}
+```
+- However, a definition is also required in the `variables.tf` at the root level. This however, does not need to match the whole definition from the `modules/terrahouse_aws/variables.tf`. Adding a var name, with a type and description should suffice.
+Definition in the root level `variables.tf` :
+```tf
+variable "user_uuid" {
+ type = string
+}
+
+variable "bucket_name" {
+ type = string
+}
+```
+
+### Modules Sources
+
+Using the source we can import the module from various places eg:
+- locally
+- Github
+- Terraform Registry
+
+```tf
+module "terrahouse_aws" {
+  source = "./modules/terrahouse_aws"
+}
+```
+
+[Modules Sources](https://developer.hashicorp.com/terraform/language/modules/sources)
+
+
+### Module Outputs
+- modules can define their own o/ps
+`modules/terrahouse_aws/outputs.tf`
+```tf
+output "bucket_name" {
+  value = aws_s3_bucket.website_bucket.bucket
+}
+```
+
+- similar to _module input vars_ , the module o/ps need to be referenced in the root level `outputs.tf`
+```tf
+output "bucket_name" {
+  description = "Bucket name for our static website hosting"
+  value = module.terrahouse_aws.bucket_name
+}
+```
 
 
 
@@ -319,10 +411,6 @@ user_uuid="<add value here>"
 
 2.10 Revert back from TF Cloud to TF Local
 2.10.1 Run `tf init` followed by `tf destroy` to destory your TF cloud resources.
-
-![tf-destory](
-tf-cloud-detroy.png
-
 2.10.2 Comment out the `cloud provider block` in `providers.tf` 
 
 ```tf
@@ -344,7 +432,7 @@ terraform {
     }
   }
 }	
-
+```
 
 2.10.3 Delete the `terrafor.lock.hcl` file and `.terraform` folder so we can migrate back to TF local.
 
@@ -463,3 +551,206 @@ output "bucket_name" {
 3.14  Create a PR and Merge this branch `23-configuration-drift` to the `main` branch.
 
 3.15 Issue tags to the `main branch` as `1.2.0`
+
+4. ## Create Terrahouse Module
+4.1 Create an `Issue`
+```txt
+AWS Terrahouse Module
+ Setup directory structure for our module
+ port our s3 bucket into the module.
+label: enhancement
+```
+
+4.2 Create a branch and launch in Gitpod
+
+4.3 Add a new folder named `modules/terrahouse_aws` and create the following filed under it `main.tf`, `outputs.tf`, `variables.tf`, `README.md`, `LICENSE` and `resource-storage.tf`
+
+4.4.1 Update `modules/terrahouse_aws/main.tf` with the contents of `./main.tf`. 
+4.4.2 Move the `aws` provider block from `./provider.tf` to `modules/terrahouse_aws/main.tf`. Delete the `./provider.tf` file.
+
+```tf
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.16.2"
+    }
+  }
+}
+provider "aws"{
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "website_bucket" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = var.bucket_name
+
+  tags = {
+    UserUuid = var.user_uuid
+  }
+}
+```
+
+
+4.5 Move the contents of `./variables.tf` to `modules/terrahouse_aws/variables.tf`
+```tf
+variable "user_uuid" {
+  description = "The UUID of the user"
+  type        = string
+  validation {
+    condition        = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$", var.user_uuid))
+    error_message    = "The user_uuid value is not a valid UUID."
+  }
+}
+
+variable "bucket_name" {
+  description = "The name of the S3 bucket"
+  type        = string
+
+  validation {
+    condition     = (
+      length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63 && 
+      can(regex("^[a-z0-9][a-z0-9-.]*[a-z0-9]$", var.bucket_name))
+    )
+    error_message = "The bucket name must be between 3 and 63 characters, start and end with a lowercase letter or number, and can contain only lowercase letters, numbers, hyphens, and dots."
+  }
+}
+```
+
+4.6 Move the contents of `./outputs.tf` to `modules/terrahouse_aws/outputs.tf`
+
+```tf
+output "bucket_name" {
+  value = aws_s3_bucket.website_bucket.bucket
+}
+```
+
+4.7 Import our new module `terrahouse_aws` to `./main.tf` and its associated variables.
+
+```tf
+module "terrahouse_aws" {
+  source = "./modules/terrahouse_aws"
+  user_uuid = var.user_uuid
+  bucket_name = var.bucket_name
+}
+```
+
+4.8 Let's try to execute to see if there are any errors.
+`tf init`
+> Notice the **warning** 
+
+```sh
+Warning: Redundant empty provider block
+│ 
+│   on modules/terrahouse_aws/main.tf line 9:
+│    9: provider "aws"{
+│ 
+│ Earlier versions of Terraform used empty provider blocks ("proxy provider configurations") for child modules to declare their need to be
+│ passed a provider configuration by their callers. That approach was ambiguous and is now deprecated.
+│ 
+│ If you control this module, you can migrate to the new declaration syntax by removing all of the empty provider "aws" blocks and then
+│ adding or updating an entry like the following to the required_providers block of module.terrahouse_aws:
+│     aws = {
+│       source = "hashicorp/aws"
+│     }
+│ 
+│ (and one more similar warning elsewhere)
+╵
+
+Terraform has been successfully initialized!
+```
+
+> This indicates that we can delete the `aws` provider block from our `modules/terrahouse_aws/main.tf, since it is blank.
+```tf
+provider "aws"{
+}
+```
+
+4.9 Lets' do a `tf plan` now.
+> Error : complains about undeclared variables. 
+```sh
+Error: Reference to undeclared input variable
+│ 
+│   on main.tf line 3, in module "terrahouse_aws":
+│    3:   user_uuid = var.user_uuid
+│ 
+│ An input variable with the name "user_uuid" has not been declared. This variable can be declared with a variable "user_uuid" {} block.
+╵
+╷
+│ Error: Reference to undeclared input variable
+│ 
+│   on main.tf line 4, in module "terrahouse_aws":
+│    4:   bucket_name = var.bucket_name
+│ 
+│ An input variable with the name "bucket_name" has not been declared. This variable can be declared with a variable "bucket_name" {}
+│ block.
+╵
+```
+> We know that we defined these variables in our `modules/terrahouse_aws/variables.tf`. However, a definition is also required in the `variables.tf` at the root level. This however, does not need to match the whole definition from the `modules/terrahouse_aws/variables.tf`. Adding a var name, with a type and description should suffice.
+
+`variables.tf`
+```tf
+variable "user_uuid" {
+ type = string
+}
+
+variable "bucket_name" {
+ type = string
+}
+```
+
+Try `tf plan` again. This time it should be able to read the input vars.
+
+4.10 Let's proceed with `tf apply`
+> Notice that it is able to create the resources, but does not list any outputs. This was working fine before we moved our o/p definitions to the  module. This is because, even though we have our o/p def in the module `outputs.tf`, they need to be referenced in the `./outputs.tf` for them to be displayed.
+```sh
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $ tf output
+╷
+│ Warning: No outputs found
+│ 
+│ The state file either has no outputs defined, or all the defined outputs are empty. Please define an output in your configuration with
+│ the `output` keyword and run `terraform refresh` for it to become available. If you are using interpolation, please verify the
+│ interpolated value is not empty. You can use the `terraform console` command to assist.
+╵
+gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $ 
+```
+
+4.11 Reference the `bucket_name` o/p defined in `modules/terrahouse_aws/outputs.tf` in our root level `outputs.tf`
+```tf
+output "bucket_name" {
+  description = "Bucket name for our static website hosting"
+  value = module.terrahouse_aws.bucket_name
+}
+```
+
+4.12 `tf plan` and `tf apply --auto-approve`.  Check the outputs: `tf outputs`
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $ tf apply --auto-approve
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Changes to Outputs:
+  + bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+
+You can apply this plan to save these new output values to the Terraform state, without changing any real infrastructure.
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $ tf output
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $ 
+```
+
+4.13 Run `tf destroy --auto-approve`
+
+4.14 Update the documentation
+
+4.15 Stage, commit and sync the changed to Github
+
+4.16  Create a PR and Merge this branch `25-aws-terrahouse-module` to the `main` branch.
+
+4.17 Issue tags to the `main branch` as `1.3.0`
