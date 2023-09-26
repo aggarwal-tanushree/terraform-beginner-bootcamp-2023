@@ -12,10 +12,10 @@
 | Topic | Status |
 | --- | --- | 
 | [Journal TOC and Major Version](#journal-toc-and-major-version)  | <ul><li> [x] </li></ul> |
-| [Restructure Root Module](#restructure-root-module) | <ul><li> [ ] </li></ul> |
-| [Terraform Import and Configuration Drift](#terraform-import-and-configuration-drift) | <ul><li> [ ] </li></ul> |
-| [Create Terrahouse Module](#create-terrahouse-module) | <ul><li> [ ] </li></ul> |
-| [Static Website Hosting](#static-website-hosting) | <ul><li> [ ] </li></ul> |
+| [Restructure Root Module](#restructure-root-module) | <ul><li> [x] </li></ul> |
+| [Terraform Import and Configuration Drift](#terraform-import-and-configuration-drift) | <ul><li> [x] </li></ul> |
+| [Create Terrahouse Module](#create-terrahouse-module) | <ul><li> [x] </li></ul> |
+| [Static Website Hosting](#static-website-hosting) | <ul><li> [x] </li></ul> |
 | [Content Delivery Network](#content-delivery-network) | <ul><li> [ ] </li></ul> |
 | [Terraform Data and Content Version](#terraform-data-and-content-version) | <ul><li> [ ] </li></ul> |
 | [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [ ] </li></ul> |
@@ -33,6 +33,34 @@ _Diagram copyrights: Andrew Brown from ExamPro.co_
 -----------------------------------------------------------------------------------------------------
 # Notes For Revision
 
+## Fixing Tags
+
+[How to Delete Local and Remote Tags on Git](https://devconnected.com/how-to-delete-local-and-remote-tags-on-git/)
+
+Locally delete a tag
+```sh
+git tag -d <tag_name>
+```
+
+Remotely delete tag
+```sh
+git push --delete origin tagname
+```
+
+Checkout the commit that you want to retag. Grab the SHA from your Github history.
+```sh
+git checkout <SHA>
+git tag M.M.P
+git push --tags
+git checkout main
+```
+
+example:
+```sh
+git checkout 2813847
+git tag 1.1.0
+git push --tags
+```
 
 ## Root Module Structure
 
@@ -316,6 +344,63 @@ output "bucket_name" {
 }
 ```
 
+## Considerations when using ChatGPT to write Terraform
+
+LLMs such as ChatGPT may not be trained on the latest documentation or information about Terraform.
+
+It may likely produce older examples that could be deprecated. Often affecting providers.
+
+
+## S3 Static website hosting using Terraform
+[AWS provider S3 website hosting conf](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration)
+
+[Static Website endpoint](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration#website_endpoint)
+
+[eTag](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_object#etag)
+
+## Working with Files in Terraform
+Uploading files using TF (eg: upload obj in a S3 bucket) is not a necessarily a valid use case, since TF is all about managing state of resources. An object(index.html file) in our case is data.
+TF supports `provisioners` which have the capability to remotely or locally execute commands, but it is not advisable to use these to upload data; we are still doing this in our project just to learn the capability. In a real production env, we won't use TF for data management.
+
+[AWS S3 Object](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_object)
+
+
+### Fileexists function
+
+This is a built in terraform function to check the existance of a file.
+https://developer.hashicorp.com/terraform/language/functions/fileexists
+
+```tf
+condition = fileexists(var.error_html_filepath)
+```
+
+### Filemd5
+
+Function that hashes the contents of a given file rather than a literal string. 
+https://developer.hashicorp.com/terraform/language/functions/filemd5
+
+In our project we are using this, in order to help TF determine when we have modified our data file. 
+_Note: For data files, TF simply checks their name fo determine if they exist or not. If we already have a file with this name, and make modifications in it, TF will not be able to determine so. Hence we are adding and `etag` using MD5 so TF can see a different hash for each file update._
+
+### Path Variable
+
+In terraform there is a special variable called `path` that allows us to reference local paths:
+- path.module = get the path for the current module
+- path.root = get the path for the root module
+[Special Path Variable](https://developer.hashicorp.com/terraform/language/expressions/references#filesystem-and-workspace-info)
+
+
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = "${path.root}/public/index.html"
+}
+
+## Terraform Console
+Syntax: ``terraform console` `
+- A command that provides an interactive console for evaluating and experimenting with [expressions](https://developer.hashicorp.com/terraform/language/expressions)
+- Can use it to test interpolations before using them in configurations and to interact with any values currently saved in state
+https://developer.hashicorp.com/terraform/cli/commands/console
 
 
 -----------------------------------------------------------------------------------------------------
@@ -754,3 +839,528 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (25-aws-terrahouse-module) $
 4.16  Create a PR and Merge this branch `25-aws-terrahouse-module` to the `main` branch.
 
 4.17 Issue tags to the `main branch` as `1.3.0`
+
+5. ## Static Website Hosting
+5.1 Create an `Issue`
+```txt
+S3 Static Website Hosting
+
+ Configure out bucket for s3 static website hosting
+ Upload an index.html
+ Upload an error.html
+ Update our outputs for static website hosting url
+
+Label: enhancement
+```
+
+5.2 Create a branch and launch in Gitpod
+
+5.3.1  Create an `output` for `website_endpoint` in `modules/terrahouse_aws/outputs.tf`
+https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration#website_endpoint
+
+```tf
+output "website_endpoint" {
+  value = aws_s3_bucket_website_configuration.website_configuration.website_endpoint
+}
+```
+
+5.3.2 Since we wish to reference this at the root level, let's add it to the `./outputs.tf`
+
+```tf
+output "s3_website_endpoint" {
+  description = "S3 Static Website hosting endpoint"
+  value = module.terrahouse_aws.website_endpoint
+}
+```
+
+
+5.4 Create a new folder and name it `public`
+5.5 Create files `index.html` and `error.html` which will be configured as the index and error pages of our static website.
+
+`index.html`:
+```html
+Hello Terraformers!!!!
+```
+
+`error.html`:
+```html
+Error found!
+```
+
+5.6.1 Define variables for `index.html` and `error.html` files in `modules/terrahouse_aws/variables.tf`
+```tf
+variable "index_html_filepath" {
+  description = "The file path for index.html"
+  type        = string
+
+  validation {
+    condition     = fileexists(var.index_html_filepath)
+    error_message = "The provided path for index.html does not exist."
+  }
+}
+
+variable "error_html_filepath" {
+  description = "The file path for error.html"
+  type        = string
+
+  validation {
+    condition     = fileexists(var.error_html_filepath)
+    error_message = "The provided path for error.html does not exist."
+  }
+}
+```
+
+5.6.2 Reference them in the `variables.tf` in the root module.
+```tf
+variable "index_html_filepath" {
+  type = string
+}
+
+variable "error_html_filepath" {
+  type = string
+}
+```
+
+5.7 Assing the vars which we created in the above step, values in `terraform.tfvars.example` and `terraform.tfvars`
+```
+index_html_filepath="/workspace/terraform-beginner-bootcamp-2023/public/index.html"
+error_html_filepath="/workspace/terraform-beginner-bootcamp-2023/public/error.html"
+```
+
+5.8 Update `modules/terrahouse_aws/main.tf` to add `aws_s3_object` resources:  "index_html" and "error.html"
+```tf
+terraform {
+  required_providers {
+    aws = {
+      source = "hashicorp/aws"
+      version = "5.16.2"
+    }
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "website_bucket" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = var.bucket_name
+
+  tags = {
+    UserUuid = var.user_uuid
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration
+resource "aws_s3_bucket_website_configuration" "website_configuration" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "error.html"
+  }
+}
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = var.index_html_filepath
+
+  etag = filemd5(var.index_html_filepath)
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "error_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "error.html"
+  source = var.error_html_filepath
+
+  etag = filemd5(var.error_html_filepath)
+}
+```
+
+
+
+5.9 Reference the index and error file path variables in the `terrahouse_aws` module in root module `main.tf
+```tf
+module "terrahouse_aws" {
+  source = "./modules/terrahouse_aws"
+  user_uuid = var.user_uuid
+  bucket_name = var.bucket_name
+  index_html_filepath = var.index_html_filepath
+  error_html_filepath = var.error_html_filepath
+}
+```
+
+5.10 Run `tf init`, `tf plan`, 'tf apply --auto-approve`
+
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf plan
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_s3_bucket.website_bucket will be created
+  + resource "aws_s3_bucket" "website_bucket" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = false
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + tags_all                    = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration will be created
+  + resource "aws_s3_bucket_website_configuration" "website_configuration" {
+      + bucket           = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + id               = (known after apply)
+      + routing_rules    = (known after apply)
+      + website_domain   = (known after apply)
+      + website_endpoint = (known after apply)
+
+      + error_document {
+          + key = "error.html"
+        }
+
+      + index_document {
+          + suffix = "index.html"
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_object.error_html will be created
+  + resource "aws_s3_object" "error_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = (known after apply)
+      + etag                   = "0d1509bca093ee2dae452ac52785b0fc"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "error.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/error.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be created
+  + resource "aws_s3_object" "index_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = (known after apply)
+      + etag                   = "06ceb38211480a14b70d5ffbdc062ec6"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "index.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/index.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+Plan: 4 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + bucket_name         = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+  + s3_website_endpoint = (known after apply)
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform
+apply" now.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ 
+```
+
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf apply
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_s3_bucket.website_bucket will be created
+  + resource "aws_s3_bucket" "website_bucket" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = false
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + tags_all                    = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration will be created
+  + resource "aws_s3_bucket_website_configuration" "website_configuration" {
+      + bucket           = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + id               = (known after apply)
+      + routing_rules    = (known after apply)
+      + website_domain   = (known after apply)
+      + website_endpoint = (known after apply)
+
+      + error_document {
+          + key = "error.html"
+        }
+
+      + index_document {
+          + suffix = "index.html"
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_object.error_html will be created
+  + resource "aws_s3_object" "error_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = (known after apply)
+      + etag                   = "0d1509bca093ee2dae452ac52785b0fc"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "error.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/error.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be created
+  + resource "aws_s3_object" "index_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = (known after apply)
+      + etag                   = "06ceb38211480a14b70d5ffbdc062ec6"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "index.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/index.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+Plan: 4 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + bucket_name         = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+  + s3_website_endpoint = (known after apply)
+
+Do you want to perform these actions?
+  Terraform will perform the actions described above.
+  Only 'yes' will be accepted to approve.
+
+  Enter a value: yes
+
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Creating...
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Creation complete after 1s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Creating...
+module.terrahouse_aws.aws_s3_object.index_html: Creating...
+module.terrahouse_aws.aws_s3_object.error_html: Creating...
+module.terrahouse_aws.aws_s3_object.error_html: Creation complete after 0s [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Creation complete after 0s [id=index.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Creation complete after 0s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Apply complete! Resources: 4 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf output
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ 
+```
+
+
+5.11 Update the documentation
+
+5.12 Destroy the resources `tf destroy``
+
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf destroy
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_s3_bucket.website_bucket will be destroyed
+  - resource "aws_s3_bucket" "website_bucket" {
+      - arn                         = "arn:aws:s3:::jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket                      = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_domain_name          = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3.amazonaws.com" -> null
+      - bucket_regional_domain_name = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3.eu-central-1.amazonaws.com" -> null
+      - force_destroy               = false -> null
+      - hosted_zone_id              = "Z21DNDUVLTQW6Q" -> null
+      - id                          = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - object_lock_enabled         = false -> null
+      - region                      = "eu-central-1" -> null
+      - request_payer               = "BucketOwner" -> null
+      - tags                        = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - tags_all                    = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - website_domain              = "s3-website.eu-central-1.amazonaws.com" -> null
+      - website_endpoint            = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+
+      - grant {
+          - id          = "4768121c120d569258ba7247f5d60971fa15a18ab8ba0f2dc3495ea72f785492" -> null
+          - permissions = [
+              - "FULL_CONTROL",
+            ] -> null
+          - type        = "CanonicalUser" -> null
+        }
+
+      - server_side_encryption_configuration {
+          - rule {
+              - bucket_key_enabled = false -> null
+
+              - apply_server_side_encryption_by_default {
+                  - sse_algorithm = "AES256" -> null
+                }
+            }
+        }
+
+      - versioning {
+          - enabled    = false -> null
+          - mfa_delete = false -> null
+        }
+
+      - website {
+          - error_document = "error.html" -> null
+          - index_document = "index.html" -> null
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration will be destroyed
+  - resource "aws_s3_bucket_website_configuration" "website_configuration" {
+      - bucket           = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - id               = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - website_domain   = "s3-website.eu-central-1.amazonaws.com" -> null
+      - website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+
+      - error_document {
+          - key = "error.html" -> null
+        }
+
+      - index_document {
+          - suffix = "index.html" -> null
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_object.error_html will be destroyed
+  - resource "aws_s3_object" "error_html" {
+      - bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_key_enabled     = false -> null
+      - content_type           = "binary/octet-stream" -> null
+      - etag                   = "0d1509bca093ee2dae452ac52785b0fc" -> null
+      - force_destroy          = false -> null
+      - id                     = "error.html" -> null
+      - key                    = "error.html" -> null
+      - metadata               = {} -> null
+      - server_side_encryption = "AES256" -> null
+      - source                 = "/workspace/terraform-beginner-bootcamp-2023/public/error.html" -> null
+      - storage_class          = "STANDARD" -> null
+      - tags                   = {} -> null
+      - tags_all               = {} -> null
+    }
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be destroyed
+  - resource "aws_s3_object" "index_html" {
+      - bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_key_enabled     = false -> null
+      - content_type           = "binary/octet-stream" -> null
+      - etag                   = "06ceb38211480a14b70d5ffbdc062ec6" -> null
+      - force_destroy          = false -> null
+      - id                     = "index.html" -> null
+      - key                    = "index.html" -> null
+      - metadata               = {} -> null
+      - server_side_encryption = "AES256" -> null
+      - source                 = "/workspace/terraform-beginner-bootcamp-2023/public/index.html" -> null
+      - storage_class          = "STANDARD" -> null
+      - tags                   = {} -> null
+      - tags_all               = {} -> null
+    }
+
+Plan: 0 to add, 0 to change, 4 to destroy.
+
+Changes to Outputs:
+  - bucket_name         = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+  - s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+
+Do you really want to destroy all resources?
+  Terraform will destroy all your managed infrastructure, as shown above.
+  There is no undo. Only 'yes' will be accepted to confirm.
+
+  Enter a value: yes
+
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Destroying... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Destroying... [id=index.html]
+module.terrahouse_aws.aws_s3_object.error_html: Destroying... [id=error.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Destruction complete after 1s
+module.terrahouse_aws.aws_s3_object.error_html: Destruction complete after 1s
+module.terrahouse_aws.aws_s3_object.index_html: Destruction complete after 1s
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Destroying... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Destruction complete after 0s
+
+Destroy complete! Resources: 4 destroyed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ 
+```
+
+5.13 Stage, commit and sync the changed to Github
+
+5.14  Create a PR and Merge this branch `` to the `main` branch.
+
+5.15 Issue tags to the `main branch` as `1.4.0`
+
+6. ## Content Delivery Network
