@@ -3,6 +3,44 @@
 [Week-1 Architecture](#week-1-architecture) :cloud: :potted_plant:
 
 [Notes for revision](#notes-for-revision) :syringe: :medal_sports:
+- [Fixing Tags](#fixing-tags)
+- [Root Module Structure](#root-module-structure)
+    + [Root module](#root-module)
+    + [README](#readme)
+    + [LICENSE](#license)
+- [Terraform and Input Variables](#terraform-and-input-variables)
+- [Terraform Cloud Variables](#terraform-cloud-variables)
+- [Terraform Variables](#terraform-variables)
+  * [Declaring an Input Variable - example](#declaring-an-input-variable---example)
+  * [Loading Terraform Input Variables](#loading-terraform-input-variables)
+    + [var flag](#var-flag)
+    + [terraform.tvfars](#terraformtvfars)
+    + [var-file flag](#var-file-flag)
+    + [auto.tfvars](#autotfvars)
+  * [Order of terraform input variables](#order-of-terraform-input-variables)
+- [Dealing With Configuration Drift](#dealing-with-configuration-drift)
+- [What is Configuration drift?](#what-is-configuration-drift-)
+- [What happens if we lose our `terraform.tfstate` state file?](#what-happens-if-we-lose-our--terraformtfstate--state-file-)
+  * [Fix Missing Resources with Terraform Import](#fix-missing-resources-with-terraform-import)
+  * [Terraform import block TFv1.5.0](#terraform-import-block-tfv150)
+  * [Fix Manual Configuration](#fix-manual-configuration)
+- [Fix using Terraform Refresh](#fix-using-terraform-refresh)
+- [Terraform Modules](#terraform-modules)
+  * [Terraform Module Structure](#terraform-module-structure)
+  * [Passing Input Variables](#passing-input-variables)
+  * [Modules Sources](#modules-sources)
+  * [Module Outputs](#module-outputs)
+- [Considerations when using ChatGPT to write Terraform](#considerations-when-using-chatgpt-to-write-terraform)
+- [S3 Static website hosting using Terraform](#s3-static-website-hosting-using-terraform)
+- [Working with Files in Terraform](#working-with-files-in-terraform)
+  * [Fileexists function](#fileexists-function)
+  * [Filemd5](#filemd5)
+  * [Path Variable](#path-variable)
+- [Terraform Console](#terraform-console)
+- [Terraform Locals](#terraform-locals)
+- [Terraform Data Sources](#terraform-data-sources)
+- [Defining IAM Policies in TF code - Working with JSON](#defining-iam-policies-in-tf-code---working-with-json)
+
 
 [Personal Documentation](#personal-documentation) :memo: :pencil:
 
@@ -85,13 +123,13 @@ Standard Terraform module structure:
 - Terraform files must exist in the root directory of the repository
 - primary entrypoint for the module 
 
-#### **README**
+#### README
 - The root module and any nested modules should have README files
 - This file should be named `README` or `README.md`. 
 - should contain the description of the module and what it should be used for.
 - **examples** can be included in a `examples` directory
 
-####  **LICENSE**
+####  LICENSE
 -  The license under which this module is available
 
 `main.tf`, `variables.tf`, `outputs.tf` : are the recommended filenames for a minimal module, even if they are empty.
@@ -380,7 +418,7 @@ Function that hashes the contents of a given file rather than a literal string.
 https://developer.hashicorp.com/terraform/language/functions/filemd5
 
 In our project we are using this, in order to help TF determine when we have modified our data file. 
-_Note: For data files, TF simply checks their name fo determine if they exist or not. If we already have a file with this name, and make modifications in it, TF will not be able to determine so. Hence we are adding and `etag` using MD5 so TF can see a different hash for each file update._
+> Note: For data files, TF simply checks their name to determine if they exist or not. If we already have a file with this name, and make modifications in it, TF will not be able to determine so. Hence we are adding and `etag` using MD5 so TF can see a different hash for each file update.
 
 ### Path Variable
 
@@ -390,18 +428,88 @@ In terraform there is a special variable called `path` that allows us to referen
 [Special Path Variable](https://developer.hashicorp.com/terraform/language/expressions/references#filesystem-and-workspace-info)
 
 
+```tf
 resource "aws_s3_object" "index_html" {
   bucket = aws_s3_bucket.website_bucket.bucket
   key    = "index.html"
   source = "${path.root}/public/index.html"
 }
+```
 
 ## Terraform Console
-Syntax: ``terraform console` `
+Syntax: `terraform console`
 - A command that provides an interactive console for evaluating and experimenting with [expressions](https://developer.hashicorp.com/terraform/language/expressions)
 - Can use it to test interpolations before using them in configurations and to interact with any values currently saved in state
 https://developer.hashicorp.com/terraform/cli/commands/console
 
+
+## Terraform Locals
+
+Locals allows us to define local variables.
+It can be very useful when we need transform data into another format and have referenced a varaible.
+
+```tf
+locals {
+  s3_origin_id = "MyS3Origin"
+}
+```
+[Local Values](https://developer.hashicorp.com/terraform/language/values/locals)
+
+## Terraform Data Sources
+
+This allows use to source data from cloud resources.
+
+This is useful when we want to reference cloud resources without importing them.
+
+```tf
+data "aws_caller_identity" "current" {}
+
+output "account_id" {
+  value = data.aws_caller_identity.current.account_id
+}
+```
+https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity
+
+[Data Sources](https://developer.hashicorp.com/terraform/language/data-sources)
+
+
+## Defining IAM Policies in TF code - Working with JSON
+Can be done in 2 ways:
+1) We use the jsonencode to create the json policy iin the hcl.
+
+```tf
+> jsonencode({"hello"="world"})
+{"hello":"world"}
+```
+
+[jsonencode](https://developer.hashicorp.com/terraform/language/functions/jsonencode)
+
+```tf
+policy = jsonencode({
+  "Version" = "2012-10-17",
+  "Statement" = {
+    "Sid" = "AllowCloudFrontServicePrincipalReadOnly",
+    "Effect" = "Allow",
+    "Principal" = {
+      "Service" = "cloudfront.amazonaws.com"
+    },
+    "Action" = "s3:GetObject",
+    "Resource" = "arn:aws:s3:::${aws_s3_bucket.website_bucket.id}/*",
+    "Condition" = {
+    "StringEquals" = {
+        #"AWS:SourceArn": data.aws_caller_identity.current.arn
+        "AWS:SourceArn" = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.s3_distribution.id}"
+      }
+    }
+  }
+})
+```
+
+2) Referenicing an IAM Policy that already exists in our AWS a/c, or creating a policy in TF as then reference it in our resource block
+```tf
+policy = data.aws_iam_policy_document.allow_access_from_another_account.json
+```
+Where a policy named `allow_access_from_another_account.json` must exist in our AWS a/c.
 
 -----------------------------------------------------------------------------------------------------
 
@@ -993,9 +1101,9 @@ module "terrahouse_aws" {
 }
 ```
 
-5.10 Run `tf init`, `tf plan`, 'tf apply --auto-approve`
+5.10 Run `tf init`, `tf plan`, `tf apply --auto-approve`
 
-```sh
+```tf
 gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf plan
 
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
@@ -1095,7 +1203,7 @@ apply" now.
 gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ 
 ```
 
-```sh
+```tf
 gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf apply
 
 Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
@@ -1220,7 +1328,7 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting
 
 5.12 Destroy the resources `tf destroy``
 
-```sh
+```tf
 gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf destroy
 module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
 module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
@@ -1359,8 +1467,770 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting
 
 5.13 Stage, commit and sync the changed to Github
 
-5.14  Create a PR and Merge this branch `` to the `main` branch.
+5.14  Create a PR and Merge this branch `27-s3-static-website-hosting` to the `main` branch.
 
 5.15 Issue tags to the `main branch` as `1.4.0`
 
 6. ## Content Delivery Network
+6.1 Create an `Issue`
+```txt
+CDN Implementation
+
+ CloudFront Distribution
+ CloudFront Origin Access Controls
+ Bucket Policy
+ 
+Label: enhancement
+```
+
+6.2 Create a branch and launch in Gitpod
+
+6.3 Create two new files: `modules/terrahouse_aws/resource-cdn.tf` and `modules/terrahouse_aws/resource-storage.tf`
+
+6.4 Cut out all the resources from `modules/terrahouse_aws/main.tf` (leave provider block there) and paste into `modules/terrahouse_aws/resource-storage.tf`
+```tf
+#provider "aws"{
+#}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket
+resource "aws_s3_bucket" "website_bucket" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = var.bucket_name
+
+  tags = {
+    UserUuid = var.user_uuid
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_website_configuration
+resource "aws_s3_bucket_website_configuration" "website_configuration" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+
+  index_document {
+    suffix = "index.html"
+  }
+
+  error_document {
+    key = "error.html"
+  }
+}
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = var.index_html_filepath
+  content_type = "text/html"
+
+  etag = filemd5(var.index_html_filepath)
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "error_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "error.html"
+  source = var.error_html_filepath
+  content_type = "text/html"
+  
+  etag = filemd5(var.error_html_filepath)
+}
+```
+
+6.5 Update `modules/terrahouse_aws/resource-cdn.tf` with code for:
+1) Origin Access control (OAC) and
+2) Creating a CDN
+```tf
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_origin_access_control
+# https://aws.amazon.com/blogs/networking-and-content-delivery/amazon-cloudfront-introduces-origin-access-control-oac/
+resource "aws_cloudfront_origin_access_control" "default" {
+  name   = "OAC ${var.bucket_name}"
+  description  = "Origin Access Controls for Static Website Hosting ${var.bucket_name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior  = "always"
+  signing_protocol  = "sigv4"
+}
+
+# Any local variables that we wish to use can be defined in this block
+locals {
+  s3_origin_id = "MyS3Origin"
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudfront_distribution
+resource "aws_cloudfront_distribution" "s3_distribution" {
+  origin {
+    domain_name              = aws_s3_bucket.website_bucket.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.default.id
+    origin_id                = local.s3_origin_id
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  comment             = "Static website hosting for: ${var.bucket_name}"
+  default_root_object = "index.html"
+
+  #aliases = ["mysite.example.com", "yoursite.example.com"]
+
+  default_cache_behavior {
+    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = local.s3_origin_id
+
+    forwarded_values {
+      query_string = false
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    viewer_protocol_policy = "allow-all"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+  price_class = "PriceClass_200"
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+      locations        = []
+    }
+  }
+
+  tags = {
+    UserUuid = var.user_uuid
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+}
+```
+
+
+6.6 Back in `modules/terrahouse_aws/resource-storage.tf` we will now add a `bucket-policy`.
+> Our bucket policy will require our AWS account ID to create the IAM Policy AWS ARN. However, we do not wish to hardcode it in our code. Another way to achieve this is by using the `Data sources`.
+We will define our data source in `modules/terrahouse_aws/main.tf` and reference it in the bucket policy.
+
+```tf
+resource "aws_s3_bucket_policy" "bucket_policy" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  #policy = data.aws_iam_policy_document.allow_access_from_another_account.json
+  policy = jsonencode({
+    "Version" = "2012-10-17",
+    "Statement" = {
+      "Sid" = "AllowCloudFrontServicePrincipalReadOnly",
+      "Effect" = "Allow",
+      "Principal" = {
+        "Service" = "cloudfront.amazonaws.com"
+      },
+      "Action" = "s3:GetObject",
+      "Resource" = "arn:aws:s3:::${aws_s3_bucket.website_bucket.id}/*",
+      "Condition" = {
+      "StringEquals" = {
+          #"AWS:SourceArn": data.aws_caller_identity.current.arn
+          "AWS:SourceArn" = "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${aws_cloudfront_distribution.s3_distribution.id}"
+        }
+      }
+    }
+  })
+}
+```
+
+
+6.7 Create Data source for in AWS identity in `modules/terrahouse_aws/main.tf`
+```tf
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity
+data "aws_caller_identity" "current" {}
+
+```
+
+
+6.8 Let's update our `public/index.html` and `public/error.html` to contain valid HTML code , so it can be serverd by our CloudFront distribution.
+`public/index.html`
+```html
+Hello <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hello Terraformers</title>
+</head>
+<body>
+    <h1>Hello Terraformers</h1>
+</body>
+</html>
+```
+
+
+`public/error.html`
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error</title>
+</head>
+<body>
+    <p>Error!</p>
+</body>
+</html>
+```
+
+6.9 Do a `tf init`, `tf plan` and `tf apply --auto-approve`. Check for errors.
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (29-cdn-implementation) $ tf apply --auto-approve
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 1s [id=496721073801]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution will be created
+  + resource "aws_cloudfront_distribution" "s3_distribution" {
+      + arn                            = (known after apply)
+      + caller_reference               = (known after apply)
+      + comment                        = "Static website hosting for: jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + default_root_object            = "index.html"
+      + domain_name                    = (known after apply)
+      + enabled                        = true
+      + etag                           = (known after apply)
+      + hosted_zone_id                 = (known after apply)
+      + http_version                   = "http2"
+      + id                             = (known after apply)
+      + in_progress_validation_batches = (known after apply)
+      + is_ipv6_enabled                = true
+      + last_modified_time             = (known after apply)
+      + price_class                    = "PriceClass_200"
+      + retain_on_delete               = false
+      + staging                        = false
+      + status                         = (known after apply)
+      + tags                           = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + tags_all                       = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + trusted_key_groups             = (known after apply)
+      + trusted_signers                = (known after apply)
+      + wait_for_deployment            = true
+
+      + default_cache_behavior {
+          + allowed_methods        = [
+              + "DELETE",
+              + "GET",
+              + "HEAD",
+              + "OPTIONS",
+              + "PATCH",
+              + "POST",
+              + "PUT",
+            ]
+          + cached_methods         = [
+              + "GET",
+              + "HEAD",
+            ]
+          + compress               = false
+          + default_ttl            = 3600
+          + max_ttl                = 86400
+          + min_ttl                = 0
+          + target_origin_id       = "MyS3Origin"
+          + trusted_key_groups     = (known after apply)
+          + trusted_signers        = (known after apply)
+          + viewer_protocol_policy = "allow-all"
+
+          + forwarded_values {
+              + headers                 = (known after apply)
+              + query_string            = false
+              + query_string_cache_keys = (known after apply)
+
+              + cookies {
+                  + forward           = "none"
+                  + whitelisted_names = (known after apply)
+                }
+            }
+        }
+
+      + origin {
+          + connection_attempts      = 3
+          + connection_timeout       = 10
+          + domain_name              = (known after apply)
+          + origin_access_control_id = (known after apply)
+          + origin_id                = "MyS3Origin"
+        }
+
+      + restrictions {
+          + geo_restriction {
+              + locations        = (known after apply)
+              + restriction_type = "none"
+            }
+        }
+
+      + viewer_certificate {
+          + cloudfront_default_certificate = true
+          + minimum_protocol_version       = "TLSv1"
+        }
+    }
+
+  # module.terrahouse_aws.aws_cloudfront_origin_access_control.default will be created
+  + resource "aws_cloudfront_origin_access_control" "default" {
+      + description                       = "Origin Access Controls for Static Website Hosting jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + etag                              = (known after apply)
+      + id                                = (known after apply)
+      + name                              = "OAC jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + origin_access_control_origin_type = "s3"
+      + signing_behavior                  = "always"
+      + signing_protocol                  = "sigv4"
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket.website_bucket will be created
+  + resource "aws_s3_bucket" "website_bucket" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = false
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + tags_all                    = {
+          + "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        }
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy will be created
+  + resource "aws_s3_bucket_policy" "bucket_policy" {
+      + bucket = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + id     = (known after apply)
+      + policy = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration will be created
+  + resource "aws_s3_bucket_website_configuration" "website_configuration" {
+      + bucket           = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + id               = (known after apply)
+      + routing_rules    = (known after apply)
+      + website_domain   = (known after apply)
+      + website_endpoint = (known after apply)
+
+      + error_document {
+          + key = "error.html"
+        }
+
+      + index_document {
+          + suffix = "index.html"
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_object.error_html will be created
+  + resource "aws_s3_object" "error_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = "text/html"
+      + etag                   = "7747a03263ec003858982cfdd2d3e0bd"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "error.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/error.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be created
+  + resource "aws_s3_object" "index_html" {
+      + acl                    = (known after apply)
+      + bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+      + bucket_key_enabled     = (known after apply)
+      + content_type           = "text/html"
+      + etag                   = "7605d598c52235f83346866906fc3400"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "index.html"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "/workspace/terraform-beginner-bootcamp-2023/public/index.html"
+      + storage_class          = (known after apply)
+      + tags_all               = (known after apply)
+      + version_id             = (known after apply)
+    }
+
+Plan: 7 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + bucket_name         = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+  + s3_website_endpoint = (known after apply)
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Creating...
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Creating...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Creation complete after 0s [id=E1T3HDEA619SZM]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Creation complete after 1s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Creating...
+module.terrahouse_aws.aws_s3_object.error_html: Creating...
+module.terrahouse_aws.aws_s3_object.index_html: Creating...
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Creating...
+module.terrahouse_aws.aws_s3_object.error_html: Creation complete after 0s [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Creation complete after 0s [id=index.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Creation complete after 0s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [10s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [30s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [40s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [50s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [1m0s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [1m10s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [1m20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [1m30s elapsed]
+.
+.
+.
+
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m0s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m10s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m30s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m40s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [7m50s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Creation complete after 7m53s [id=E2EGWXIWF5D24U]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creating...
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creation complete after 1s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Apply complete! Resources: 7 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (29-cdn-implementation) $ 
+```
+
+6.10 Login to the AWS Management Console and navigate to `CloudFront`. Inspect the newly created CDN. Open the distribution URL `https://dmj47h41p0z05.cloudfront.net` to see if it serves our content - index.html.
+It works!
+
+6.11 `tf destroy`
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (29-cdn-implementation) $ tf destroy --auto-approve
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E1T3HDEA619SZM]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 1s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2EGWXIWF5D24U]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  - destroy
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution will be destroyed
+  - resource "aws_cloudfront_distribution" "s3_distribution" {
+      - aliases                        = [] -> null
+      - arn                            = "arn:aws:cloudfront::496721073801:distribution/E2EGWXIWF5D24U" -> null
+      - caller_reference               = "terraform-20230927160422959900000001" -> null
+      - comment                        = "Static website hosting for: jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - default_root_object            = "index.html" -> null
+      - domain_name                    = "dmj47h41p0z05.cloudfront.net" -> null
+      - enabled                        = true -> null
+      - etag                           = "E3LQBZOUMSA56K" -> null
+      - hosted_zone_id                 = "Z2FDTNDATAQYW2" -> null
+      - http_version                   = "http2" -> null
+      - id                             = "E2EGWXIWF5D24U" -> null
+      - in_progress_validation_batches = 0 -> null
+      - is_ipv6_enabled                = true -> null
+      - last_modified_time             = "2023-09-27 16:04:23.062 +0000 UTC" -> null
+      - price_class                    = "PriceClass_200" -> null
+      - retain_on_delete               = false -> null
+      - staging                        = false -> null
+      - status                         = "Deployed" -> null
+      - tags                           = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - tags_all                       = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - trusted_key_groups             = [
+          - {
+              - enabled = false
+              - items   = []
+            },
+        ] -> null
+      - trusted_signers                = [
+          - {
+              - enabled = false
+              - items   = []
+            },
+        ] -> null
+      - wait_for_deployment            = true -> null
+
+      - default_cache_behavior {
+          - allowed_methods        = [
+              - "DELETE",
+              - "GET",
+              - "HEAD",
+              - "OPTIONS",
+              - "PATCH",
+              - "POST",
+              - "PUT",
+            ] -> null
+          - cached_methods         = [
+              - "GET",
+              - "HEAD",
+            ] -> null
+          - compress               = false -> null
+          - default_ttl            = 3600 -> null
+          - max_ttl                = 86400 -> null
+          - min_ttl                = 0 -> null
+          - smooth_streaming       = false -> null
+          - target_origin_id       = "MyS3Origin" -> null
+          - trusted_key_groups     = [] -> null
+          - trusted_signers        = [] -> null
+          - viewer_protocol_policy = "allow-all" -> null
+
+          - forwarded_values {
+              - headers                 = [] -> null
+              - query_string            = false -> null
+              - query_string_cache_keys = [] -> null
+
+              - cookies {
+                  - forward           = "none" -> null
+                  - whitelisted_names = [] -> null
+                }
+            }
+        }
+
+      - origin {
+          - connection_attempts      = 3 -> null
+          - connection_timeout       = 10 -> null
+          - domain_name              = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3.eu-central-1.amazonaws.com" -> null
+          - origin_access_control_id = "E1T3HDEA619SZM" -> null
+          - origin_id                = "MyS3Origin" -> null
+        }
+
+      - restrictions {
+          - geo_restriction {
+              - locations        = [] -> null
+              - restriction_type = "none" -> null
+            }
+        }
+
+      - viewer_certificate {
+          - cloudfront_default_certificate = true -> null
+          - minimum_protocol_version       = "TLSv1" -> null
+        }
+    }
+
+  # module.terrahouse_aws.aws_cloudfront_origin_access_control.default will be destroyed
+  - resource "aws_cloudfront_origin_access_control" "default" {
+      - description                       = "Origin Access Controls for Static Website Hosting jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - etag                              = "ETVPDKIKX0DER" -> null
+      - id                                = "E1T3HDEA619SZM" -> null
+      - name                              = "OAC jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - origin_access_control_origin_type = "s3" -> null
+      - signing_behavior                  = "always" -> null
+      - signing_protocol                  = "sigv4" -> null
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket.website_bucket will be destroyed
+  - resource "aws_s3_bucket" "website_bucket" {
+      - arn                         = "arn:aws:s3:::jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket                      = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_domain_name          = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3.amazonaws.com" -> null
+      - bucket_regional_domain_name = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3.eu-central-1.amazonaws.com" -> null
+      - force_destroy               = false -> null
+      - hosted_zone_id              = "Z21DNDUVLTQW6Q" -> null
+      - id                          = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - object_lock_enabled         = false -> null
+      - policy                      = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "s3:GetObject"
+                      - Condition = {
+                          - StringEquals = {
+                              - "AWS:SourceArn" = "arn:aws:cloudfront::496721073801:distribution/E2EGWXIWF5D24U"
+                            }
+                        }
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "cloudfront.amazonaws.com"
+                        }
+                      - Resource  = "arn:aws:s3:::jvf0qijub046z6nj13vhm9463gjgf9g7/*"
+                      - Sid       = "AllowCloudFrontServicePrincipalReadOnly"
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - region                      = "eu-central-1" -> null
+      - request_payer               = "BucketOwner" -> null
+      - tags                        = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - tags_all                    = {
+          - "UserUuid" = "3fffbe00-6c46-402b-bfce-8fe34ad165fe"
+        } -> null
+      - website_domain              = "s3-website.eu-central-1.amazonaws.com" -> null
+      - website_endpoint            = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+
+      - grant {
+          - id          = "4768121c120d569258ba7247f5d60971fa15a18ab8ba0f2dc3495ea72f785492" -> null
+          - permissions = [
+              - "FULL_CONTROL",
+            ] -> null
+          - type        = "CanonicalUser" -> null
+        }
+
+      - server_side_encryption_configuration {
+          - rule {
+              - bucket_key_enabled = false -> null
+
+              - apply_server_side_encryption_by_default {
+                  - sse_algorithm = "AES256" -> null
+                }
+            }
+        }
+
+      - versioning {
+          - enabled    = false -> null
+          - mfa_delete = false -> null
+        }
+
+      - website {
+          - error_document = "error.html" -> null
+          - index_document = "index.html" -> null
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy will be destroyed
+  - resource "aws_s3_bucket_policy" "bucket_policy" {
+      - bucket = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - id     = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - policy = jsonencode(
+            {
+              - Statement = {
+                  - Action    = "s3:GetObject"
+                  - Condition = {
+                      - StringEquals = {
+                          - "AWS:SourceArn" = "arn:aws:cloudfront::496721073801:distribution/E2EGWXIWF5D24U"
+                        }
+                    }
+                  - Effect    = "Allow"
+                  - Principal = {
+                      - Service = "cloudfront.amazonaws.com"
+                    }
+                  - Resource  = "arn:aws:s3:::jvf0qijub046z6nj13vhm9463gjgf9g7/*"
+                  - Sid       = "AllowCloudFrontServicePrincipalReadOnly"
+                }
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+    }
+
+  # module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration will be destroyed
+  - resource "aws_s3_bucket_website_configuration" "website_configuration" {
+      - bucket           = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - id               = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - website_domain   = "s3-website.eu-central-1.amazonaws.com" -> null
+      - website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+
+      - error_document {
+          - key = "error.html" -> null
+        }
+
+      - index_document {
+          - suffix = "index.html" -> null
+        }
+    }
+
+  # module.terrahouse_aws.aws_s3_object.error_html will be destroyed
+  - resource "aws_s3_object" "error_html" {
+      - bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_key_enabled     = false -> null
+      - content_type           = "text/html" -> null
+      - etag                   = "7747a03263ec003858982cfdd2d3e0bd" -> null
+      - force_destroy          = false -> null
+      - id                     = "error.html" -> null
+      - key                    = "error.html" -> null
+      - metadata               = {} -> null
+      - server_side_encryption = "AES256" -> null
+      - source                 = "/workspace/terraform-beginner-bootcamp-2023/public/error.html" -> null
+      - storage_class          = "STANDARD" -> null
+      - tags                   = {} -> null
+      - tags_all               = {} -> null
+    }
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be destroyed
+  - resource "aws_s3_object" "index_html" {
+      - bucket                 = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+      - bucket_key_enabled     = false -> null
+      - content_type           = "text/html" -> null
+      - etag                   = "7605d598c52235f83346866906fc3400" -> null
+      - force_destroy          = false -> null
+      - id                     = "index.html" -> null
+      - key                    = "index.html" -> null
+      - metadata               = {} -> null
+      - server_side_encryption = "AES256" -> null
+      - source                 = "/workspace/terraform-beginner-bootcamp-2023/public/index.html" -> null
+      - storage_class          = "STANDARD" -> null
+      - tags                   = {} -> null
+      - tags_all               = {} -> null
+    }
+
+Plan: 0 to add, 0 to change, 7 to destroy.
+
+Changes to Outputs:
+  - bucket_name         = "jvf0qijub046z6nj13vhm9463gjgf9g7" -> null
+  - s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com" -> null
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Destroying... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Destroying... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Destroying... [id=index.html]
+module.terrahouse_aws.aws_s3_object.error_html: Destroying... [id=error.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Destruction complete after 0s
+module.terrahouse_aws.aws_s3_object.error_html: Destruction complete after 0s
+module.terrahouse_aws.aws_s3_object.index_html: Destruction complete after 0s
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Destruction complete after 0s
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Destroying... [id=E2EGWXIWF5D24U]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still destroying... [id=E2EGWXIWF5D24U, 10s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still destroying... [id=E2EGWXIWF5D24U, 20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still destroying... [id=E2EGWXIWF5D24U, 30s elapsed]
+.
+.
+
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still destroying... [id=E2EGWXIWF5D24U, 7m10s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still destroying... [id=E2EGWXIWF5D24U, 7m20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Destruction complete after 7m23s
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Destroying... [id=E1T3HDEA619SZM]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Destroying... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Destruction complete after 0s
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Destruction complete after 0s
+
+Destroy complete! Resources: 7 destroyed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (29-cdn-implementation) $ 
+```
+
+6.12 Update the documentation
+
+6.13 Stage, commit and sync the changed to Github.
+
+6.14  Create a PR and Merge this branch `29-cdn-implementation` to the `main` branch.
+
+6.15 Issue tags `1.5.0` to the `main` branch.
