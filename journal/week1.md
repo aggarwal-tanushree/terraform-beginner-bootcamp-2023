@@ -6,8 +6,6 @@
 - [Fixing Tags](#fixing-tags)
 - [Root Module Structure](#root-module-structure)
     + [Root module](#root-module)
-    + [README](#readme)
-    + [LICENSE](#license)
 - [Terraform and Input Variables](#terraform-and-input-variables)
 - [Terraform Cloud Variables](#terraform-cloud-variables)
 - [Terraform Variables](#terraform-variables)
@@ -54,8 +52,8 @@
 | [Terraform Import and Configuration Drift](#terraform-import-and-configuration-drift) | <ul><li> [x] </li></ul> |
 | [Create Terrahouse Module](#create-terrahouse-module) | <ul><li> [x] </li></ul> |
 | [Static Website Hosting](#static-website-hosting) | <ul><li> [x] </li></ul> |
-| [Content Delivery Network](#content-delivery-network) | <ul><li> [ ] </li></ul> |
-| [Terraform Data and Content Version](#terraform-data-and-content-version) | <ul><li> [ ] </li></ul> |
+| [Content Delivery Network](#content-delivery-network) | <ul><li> [x] </li></ul> |
+| [Terraform Data and Content Version](#terraform-data-and-content-version) | <ul><li> [x] </li></ul> |
 | [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [ ] </li></ul> |
 | [Assets Upload and For Each](#assets-upload-and-for-each) | <ul><li> [ ] </li></ul> |
 | [Working Through Git Graph Issues](#working-through-git-graph-issues) | <ul><li> [ ] </li></ul> |
@@ -123,13 +121,13 @@ Standard Terraform module structure:
 - Terraform files must exist in the root directory of the repository
 - primary entrypoint for the module 
 
-#### README
+**README**
 - The root module and any nested modules should have README files
 - This file should be named `README` or `README.md`. 
 - should contain the description of the module and what it should be used for.
 - **examples** can be included in a `examples` directory
 
-####  LICENSE
+**LICENSE**
 -  The license under which this module is available
 
 `main.tf`, `variables.tf`, `outputs.tf` : are the recommended filenames for a minimal module, even if they are empty.
@@ -505,11 +503,21 @@ policy = jsonencode({
 })
 ```
 
-2) Referenicing an IAM Policy that already exists in our AWS a/c, or creating a policy in TF as then reference it in our resource block
+2) Referencing an IAM Policy that already exists in our AWS a/c, or creating a policy in TF as then reference it in our resource block
 ```tf
 policy = data.aws_iam_policy_document.allow_access_from_another_account.json
 ```
 Where a policy named `allow_access_from_another_account.json` must exist in our AWS a/c.
+
+### Changing the Lifecycle of Resources
+
+[Meta Arguments Lifcycle](https://developer.hashicorp.com/terraform/language/meta-arguments/lifecycle)
+
+## Terraform Data
+
+Plain data values such as Local Values and Input Variables don't have any side-effects to plan against and so they aren't valid in replace_triggered_by. You can use terraform_data's behavior of planning an action each time input changes to indirectly use a plain value to trigger replacement.
+
+https://developer.hashicorp.com/terraform/language/resources/terraform-data
 
 -----------------------------------------------------------------------------------------------------
 
@@ -1326,7 +1334,7 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting
 
 5.11 Update the documentation
 
-5.12 Destroy the resources `tf destroy``
+5.12 Destroy the resources `tf destroy`
 
 ```tf
 gitpod /workspace/terraform-beginner-bootcamp-2023 (27-s3-static-website-hosting) $ tf destroy
@@ -2234,3 +2242,318 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (29-cdn-implementation) $
 6.14  Create a PR and Merge this branch `29-cdn-implementation` to the `main` branch.
 
 6.15 Issue tags `1.5.0` to the `main` branch.
+
+7. ## Terraform Data and Content Version
+7.1 Create an `Issue`
+```txt
+Setup Content Version
+
+only change files when we set a content version
+ 
+Label: enhancement
+```
+
+7.2 Create a branch and launch in Gitpod.
+
+7.3 Create a new variable for `content-version` in `modules/terrahouse_aws/variables.tf`
+
+```tf
+variable "content_version" {
+  description = "The content version. Should be a positive integer starting at 1."
+  type        = number
+
+  validation {
+    condition     = var.content_version > 0 && floor(var.content_version) == var.content_version
+    error_message = "The content_version must be a positive integer starting at 1."
+  }
+}
+```
+
+7.4 Reference the `content_version` of `modules/terrahouse_aws/variables.tf` in `./variables.tf`
+
+```tf
+variable "content_version" {
+  type = number
+}
+```
+
+7.5 Set a content version for our HTML pages which are being served by our CloudFront distribution.
+
+`terraform.tfvars` and `terraform.tfvars.example`
+```tf
+content_version=1
+```
+
+
+7.6 Set the `content_version` for module terrahouse_aws in `./main.tf` as well.
+
+```tf
+content_version = var.content_version
+```
+7.7 Run `tf init` `tf apply --auto approve`
+
+```tf
+.
+.
+.
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [4m20s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Still creating... [4m30s elapsed]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Creation complete after 4m35s [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creating...
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creation complete after 1s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Apply complete! Resources: 7 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ 
+```
+
+7.8 Make a minor change in `public/index.html` and run `tf plan`. Check if TF notices the change in file and updates the plan.
+It does! But we don't want this to happen. We want the _plan_ to change only when the `content-version` changes.
+
+7.9 Since we no longer want to trigger a plan/change when the `etag` of our `index.html` changes (i.e when we update the content of index file), we will ignore these by creating a `lifecycle` block in our HTML resources in `modules/terrahouse_aws/resource-storage.tf`
+
+```tf
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = var.index_html_filepath
+  content_type = "text/html"
+
+  etag = filemd5(var.index_html_filepath)
+  lifecycle {
+    ignore_changes = [etag]
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "error_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "error.html"
+  source = var.error_html_filepath
+  content_type = "text/html"
+
+  etag = filemd5(var.error_html_filepath)
+  #lifecycle {
+  #  ignore_changes = [etag]
+  #}
+}
+```
+7.10 Run `tf plan` now. Notice that the plan does not change!
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ tf plan
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E2ZB84HKRZ8VQB]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 0s [id=496721073801]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ 
+```
+
+
+7.11 We want to _plan_ to change when the _content-version_ changes. This can be achieved by defining a `terraform-data` resource in `modules/terrahouse_aws/resource-storage.tf`
+``tf
+resource "terraform_data" "content_version" {
+  input = var.content_version
+}
+```
+
+and add a `replace_triggered_by` in our `lifecycle` block for `index.html` resource.
+
+```tf
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = var.index_html_filepath
+  content_type = "text/html"
+
+  etag = filemd5(var.index_html_filepath)
+  lifecycle {
+    replace_triggered_by = [terraform_data.content_version.output]
+    ignore_changes = [etag]
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "error_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "error.html"
+  source = var.error_html_filepath
+  content_type = "text/html"
+
+  etag = filemd5(var.error_html_filepath)
+  #lifecycle {
+  #  ignore_changes = [etag]
+  #}
+}
+```
+
+7.12 Run `tf plan` and `tf apply`.
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ tf plan
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E2ZB84HKRZ8VQB]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 0s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.terraform_data.content_version will be created
+  + resource "terraform_data" "content_version" {
+      + id     = (known after apply)
+      + input  = 1
+      + output = (known after apply)
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform
+apply" now.
+
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ tf apply --auto-approve
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E2ZB84HKRZ8VQB]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 0s [id=496721073801]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.terraform_data.content_version will be created
+  + resource "terraform_data" "content_version" {
+      + id     = (known after apply)
+      + input  = 1
+      + output = (known after apply)
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+module.terrahouse_aws.terraform_data.content_version: Creating...
+module.terrahouse_aws.terraform_data.content_version: Creation complete after 0s [id=fa135f2a-3330-0107-ae42-58e7896fdae4]
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ 
+
+```
+
+
+7.13 Update the `public/index.html` file and run `tf plan` again, to check if it notices the change.
+It does not. This indicates that our lifecycle is working correctly.
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ tf plan
+module.terrahouse_aws.terraform_data.content_version: Refreshing state... [id=fa135f2a-3330-0107-ae42-58e7896fdae4]
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E2ZB84HKRZ8VQB]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 1s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+```
+
+7.14 Update `content-version` value to `2` in `terraform.tfvars`. Follow it with `tf plan` and `tf apply` to see if it picks the update.
+```tf
+content_version=2
+```
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ tf plan
+module.terrahouse_aws.terraform_data.content_version: Refreshing state... [id=fa135f2a-3330-0107-ae42-58e7896fdae4]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=E2ZB84HKRZ8VQB]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 0s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E2N4Q9WW3WVNSP]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be replaced due to changes in replace_triggered_by
+-/+ resource "aws_s3_object" "index_html" {
+      + acl                    = (known after apply)
+      ~ bucket_key_enabled     = false -> (known after apply)
+      ~ etag                   = "7605d598c52235f83346866906fc3400" -> "1e55ac578f9c97d75109ed21a7b86bdf"
+      ~ id                     = "index.html" -> (known after apply)
+      + kms_key_id             = (known after apply)
+      - metadata               = {} -> null
+      ~ server_side_encryption = "AES256" -> (known after apply)
+      ~ storage_class          = "STANDARD" -> (known after apply)
+      - tags                   = {} -> null
+      ~ tags_all               = {} -> (known after apply)
+      + version_id             = (known after apply)
+        # (5 unchanged attributes hidden)
+    }
+
+  # module.terrahouse_aws.terraform_data.content_version will be updated in-place
+  ~ resource "terraform_data" "content_version" {
+        id     = "fa135f2a-3330-0107-ae42-58e7896fdae4"
+      ~ input  = 1 -> 2
+      ~ output = 1 -> (known after apply)
+    }
+
+Plan: 1 to add, 1 to change, 1 to destroy.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+Note: You didn't use the -out option to save this plan, so Terraform can't guarantee to take exactly these actions if you run "terraform
+apply" now.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $ 
+```
+
+7.15 Update the documentation
+
+7.16 Stage, commit and sync the changed to Github
+
+7.17  Create a PR and Merge this branch `31-setup-content-version` to the `main` branch.
+
+7.18 `tf destroy`
+
+7.19 Issue tags to the `main branch` as `1.6.0`
+
