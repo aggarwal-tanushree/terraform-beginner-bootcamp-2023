@@ -54,7 +54,7 @@
 | [Static Website Hosting](#static-website-hosting) | <ul><li> [x] </li></ul> |
 | [Content Delivery Network](#content-delivery-network) | <ul><li> [x] </li></ul> |
 | [Terraform Data and Content Version](#terraform-data-and-content-version) | <ul><li> [x] </li></ul> |
-| [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [ ] </li></ul> |
+| [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [x] </li></ul> |
 | [Assets Upload and For Each](#assets-upload-and-for-each) | <ul><li> [ ] </li></ul> |
 | [Working Through Git Graph Issues](#working-through-git-graph-issues) | <ul><li> [ ] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
@@ -518,6 +518,81 @@ Where a policy named `allow_access_from_another_account.json` must exist in our 
 Plain data values such as Local Values and Input Variables don't have any side-effects to plan against and so they aren't valid in replace_triggered_by. You can use terraform_data's behavior of planning an action each time input changes to indirectly use a plain value to trigger replacement.
 
 https://developer.hashicorp.com/terraform/language/resources/terraform-data
+
+## Provisioners
+
+Provisioners allow you to execute commands on compute instances eg. a AWS CLI command.
+
+They are not recommended for use by Hashicorp because Configuration Management tools, such as Ansible are a better fit, but the functionality exists.
+
+[Provisioners](https://developer.hashicorp.com/terraform/language/resources/provisioners/syntax)
+
+### Local-exec
+
+This will execute command on the machine running the terraform commands eg. `terraform plan` , `terraform apply`
+
+```tf
+resource "aws_instance" "web" {
+  # ...
+
+  provisioner "local-exec" {
+    command = "echo The server's IP address is ${self.private_ip}"
+  }
+}
+```
+
+https://developer.hashicorp.com/terraform/language/resources/provisioners/local-exec
+
+### Remote-exec
+
+This will execute commands on a machine which you target. You will need to provide credentials such as ssh to get into the machine.
+
+```tf
+resource "aws_instance" "web" {
+  # ...
+
+  # Establishes connection to be used by all
+  # generic remote provisioners (i.e. file/remote-exec)
+  connection {
+    type     = "ssh"
+    user     = "root"
+    password = var.root_password
+    host     = self.public_ip
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "puppet apply",
+      "consul join ${aws_instance.web.private_ip}",
+    ]
+  }
+}
+```
+https://developer.hashicorp.com/terraform/language/resources/provisioners/remote-exec
+
+
+## Heredoc String
+
+A HereDoc is a multiline string or a file literal that is treated as a special block, for sending input streams to other commands and programs. HereDocs are especially useful when redirecting multiple commands at once, which helps make Bash scripts neater and easier to understand.
+The most common syntax for here documents, originating in Unix shells, is `<<` followed by a delimiting identifier (often the word EOF or END), followed, starting on the next line, by the text to be quoted, and then closed by the same delimiting identifier on its own line.
+
+```sh
+<<EOT
+hello
+world
+EOT
+```
+It permits the use of backslash`\` to divide string into seperate lines and make it more readable.
+
+```tf
+<<COMMAND
+aws cloudfront create-invalidation \
+--distribution-id ${aws_cloudfront_distribution.s3_distribution.id} \
+--paths '/*'
+    COMMAND
+```
+
+https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings
 
 -----------------------------------------------------------------------------------------------------
 
@@ -2557,3 +2632,238 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (31-setup-content-version) $
 
 7.19 Issue tags to the `main branch` as `1.6.0`
 
+8. ## Invalidate Cache and Local Exec
+8.1 Create an `Issue`
+```txt
+Invalidate Cloudfront Distribution
+
+ data_source for content_version
+ trigger cloudfront distrubtion invalidation
+ 
+Label: enhancement
+```
+
+8.2 Create a branch and launch in Gitpod
+
+8.3 We want that our CDN cache invalidates when the `content-version` (implemented in the previous step) changes. For this we will be making use of `terraform-data`.
+Let's create the `terraform-data` resource for this in our `modules/terrahouse_aws/resource-cdn.tf`
+```tf
+resource "terraform_data" "invalidate_cache" {
+  triggers_replace = terraform_data.content_version.output
+
+  provisioner "local-exec" {
+    # https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings
+    command = <<COMMAND
+aws cloudfront create-invalidation \
+--distribution-id ${aws_cloudfront_distribution.s3_distribution.id} \
+--paths '/*'
+    COMMAND
+
+  }
+}
+```
+
+8.4 Let's add an `Output` for the CloudFront distribution domain name/endpoint in our `/modules/terrahouse_aws/outputs.tf`
+```tf
+output "cloudfront_url" {
+  value = aws_cloudfront_distribution.s3_distribution.domain_name
+}
+```
+
+8.5 Reference the output in `./outputs.tf`
+```
+output "cloudfront_url" {
+  description = "The CloudFront Distribution Domain Name"
+  value = module.terrahouse_aws.cloudfront_url
+}
+```
+
+8.6 Run `tf init`, `tf plan` and `tf apply --auto-approve`. Check the CDN URL in the browser to see if it loads our content.
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (33-invalidate-cloudfront-distribution) $ tf apply
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 0s [id=496721073801]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+.
+.
+
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Creation complete after 3m12s [id=E1U9O9P2MCM4SI]
+module.terrahouse_aws.terraform_data.invalidate_cache: Creating...
+module.terrahouse_aws.terraform_data.invalidate_cache: Provisioning with 'local-exec'...
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): Executing: ["/bin/sh" "-c" "aws cloudfront create-invalidation \\\n--distribution-id E1U9O9P2MCM4SI \\\n--paths '/*'\n"]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creating...
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Creation complete after 1s [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     "Location": "https://cloudfront.amazonaws.com/2020-05-31/distribution/E1U9O9P2MCM4SI/invalidation/I4EM7J8WNF3TELB15W9KXTQQYW",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     "Invalidation": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "Id": "I4EM7J8WNF3TELB15W9KXTQQYW",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "Status": "InProgress",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "CreateTime": "2023-09-29T11:34:59.624000+00:00",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "InvalidationBatch": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             "Paths": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 "Quantity": 1,
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 "Items": [
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                     "/*"
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 ]
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             },
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             "CallerReference": "cli-1695987299-273617"
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         }
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     }
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): }
+module.terrahouse_aws.terraform_data.invalidate_cache: Creation complete after 2s [id=2c4d3be5-3628-a9c2-7f24-00b257c15fdb]
+
+Apply complete! Resources: 9 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+cloudfront_url = "d146qxy4p80cbh.cloudfront.net"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+gitpod /workspace/terraform-beginner-bootcamp-2023 (33-invalidate-cloudfront-distribution) $ 
+
+```
+
+
+8.7 Update the `public/index.html` and follow it with `tf plan` to see if it notices the change.
+It should not, since we have not updated the `content-version`
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (33-invalidate-cloudfront-distribution) $ tf plan
+module.terrahouse_aws.terraform_data.content_version: Refreshing state... [id=ff291ddc-01d3-dbc6-5678-3aece6657e1a]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=EN0W9OCHNY5HE]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 1s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E1U9O9P2MCM4SI]
+module.terrahouse_aws.terraform_data.invalidate_cache: Refreshing state... [id=2c4d3be5-3628-a9c2-7f24-00b257c15fdb]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+```
+
+8.8 Update the `content-version` and then run `tf plan` and `tf apply --auto-approve`
+Check the CDN URL for updated content. Also check in the AWS Management console if the cache was invalidated.
+
+```tf
+ # module.terrahouse_aws.terraform_data.invalidate_cache must be replaced
+-/+ resource "terraform_data" "invalidate_cache" {
+      ~ id               = "2c4d3be5-3628-a9c2-7f24-00b257c15fdb" -> (known after apply)
+      ~ triggers_replace = 1 -> (known after apply) # forces replacement
+    }
+
+Plan: 2 to add, 1 to change, 2 to destroy.
+
+─────────────────────────────────────────
+```
+
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (33-invalidate-cloudfront-distribution) $ tf apply --auto-approve
+module.terrahouse_aws.terraform_data.content_version: Refreshing state... [id=ff291ddc-01d3-dbc6-5678-3aece6657e1a]
+module.terrahouse_aws.data.aws_caller_identity.current: Reading...
+module.terrahouse_aws.aws_cloudfront_origin_access_control.default: Refreshing state... [id=EN0W9OCHNY5HE]
+module.terrahouse_aws.aws_s3_bucket.website_bucket: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.data.aws_caller_identity.current: Read complete after 1s [id=496721073801]
+module.terrahouse_aws.aws_s3_bucket_website_configuration.website_configuration: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+module.terrahouse_aws.aws_s3_object.index_html: Refreshing state... [id=index.html]
+module.terrahouse_aws.aws_s3_object.error_html: Refreshing state... [id=error.html]
+module.terrahouse_aws.aws_cloudfront_distribution.s3_distribution: Refreshing state... [id=E1U9O9P2MCM4SI]
+module.terrahouse_aws.terraform_data.invalidate_cache: Refreshing state... [id=2c4d3be5-3628-a9c2-7f24-00b257c15fdb]
+module.terrahouse_aws.aws_s3_bucket_policy.bucket_policy: Refreshing state... [id=jvf0qijub046z6nj13vhm9463gjgf9g7]
+
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  ~ update in-place
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # module.terrahouse_aws.aws_s3_object.index_html will be replaced due to changes in replace_triggered_by
+-/+ resource "aws_s3_object" "index_html" {
+      + acl                    = (known after apply)
+      ~ bucket_key_enabled     = false -> (known after apply)
+      ~ etag                   = "f89eb8a58848d951c60f945b64615a18" -> "4cc5e1643dc4cfad5022903c51137995"
+      ~ id                     = "index.html" -> (known after apply)
+      + kms_key_id             = (known after apply)
+      - metadata               = {} -> null
+      ~ server_side_encryption = "AES256" -> (known after apply)
+      ~ storage_class          = "STANDARD" -> (known after apply)
+      - tags                   = {} -> null
+      ~ tags_all               = {} -> (known after apply)
+      + version_id             = (known after apply)
+        # (5 unchanged attributes hidden)
+    }
+
+  # module.terrahouse_aws.terraform_data.content_version will be updated in-place
+  ~ resource "terraform_data" "content_version" {
+        id     = "ff291ddc-01d3-dbc6-5678-3aece6657e1a"
+      ~ input  = 1 -> 3
+      ~ output = 1 -> (known after apply)
+    }
+
+  # module.terrahouse_aws.terraform_data.invalidate_cache must be replaced
+-/+ resource "terraform_data" "invalidate_cache" {
+      ~ id               = "2c4d3be5-3628-a9c2-7f24-00b257c15fdb" -> (known after apply)
+      ~ triggers_replace = 1 -> (known after apply) # forces replacement
+    }
+
+Plan: 2 to add, 1 to change, 2 to destroy.
+module.terrahouse_aws.terraform_data.invalidate_cache: Destroying... [id=2c4d3be5-3628-a9c2-7f24-00b257c15fdb]
+module.terrahouse_aws.terraform_data.invalidate_cache: Destruction complete after 0s
+module.terrahouse_aws.aws_s3_object.index_html: Destroying... [id=index.html]
+module.terrahouse_aws.aws_s3_object.index_html: Destruction complete after 0s
+module.terrahouse_aws.terraform_data.content_version: Modifying... [id=ff291ddc-01d3-dbc6-5678-3aece6657e1a]
+module.terrahouse_aws.terraform_data.content_version: Modifications complete after 0s [id=ff291ddc-01d3-dbc6-5678-3aece6657e1a]
+module.terrahouse_aws.terraform_data.invalidate_cache: Creating...
+module.terrahouse_aws.terraform_data.invalidate_cache: Provisioning with 'local-exec'...
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): Executing: ["/bin/sh" "-c" "aws cloudfront create-invalidation \\\n--distribution-id E1U9O9P2MCM4SI \\\n--paths '/*'\n"]
+module.terrahouse_aws.aws_s3_object.index_html: Creating...
+module.terrahouse_aws.aws_s3_object.index_html: Creation complete after 0s [id=index.html]
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     "Location": "https://cloudfront.amazonaws.com/2020-05-31/distribution/E1U9O9P2MCM4SI/invalidation/IQ4NVIWKVLA4V84TEOLAUCTJV",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     "Invalidation": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "Id": "IQ4NVIWKVLA4V84TEOLAUCTJV",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "Status": "InProgress",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "CreateTime": "2023-09-29T11:38:22.687000+00:00",
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         "InvalidationBatch": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             "Paths": {
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 "Quantity": 1,
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 "Items": [
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                     "/*"
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):                 ]
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             },
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):             "CallerReference": "cli-1695987502-761110"
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):         }
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec):     }
+module.terrahouse_aws.terraform_data.invalidate_cache (local-exec): }
+module.terrahouse_aws.terraform_data.invalidate_cache: Creation complete after 1s [id=ab4d420b-9645-dc8f-b09f-142e0d0688f6]
+
+Apply complete! Resources: 2 added, 1 changed, 2 destroyed.
+
+Outputs:
+
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+cloudfront_url = "d146qxy4p80cbh.cloudfront.net"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+```
+
+
+8.9 Update the documentation
+
+8.10 Stage, commit and sync the changed to Github
+
+8.11  Create a PR and Merge this branch `33-invalidate-cloudfront-distribution` to the `main` branch.
+
+8.12 `tf destroy`
+
+8.13 Issue tags to the `main branch` as `1.7.0`
+
+9. ## Assets Upload and For Each
