@@ -70,7 +70,7 @@
 | [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [x] </li></ul> |
 | [Assets Upload and For Each](#assets-upload-and-for-each) | <ul><li> [x] </li></ul> |
 | [Working Through Git Graph Issues](#working-through-git-graph-issues) | <ul><li> [x] </li></ul> |
-| [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
+| [Project Validation](#project-validation) | <ul><li> [x] </li></ul> |
 
 # Week 1 Architecture
 ![week1-architecture](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/a7c8bb05e343f4daa90e3df29ee00f53993461a2/journal/assets/week-1/Week-1-ArchitecturalDiagram.png)
@@ -678,10 +678,10 @@ Expressions are used to refer to or compute values within a configuration.
 [Terraform expressions](https://developer.hashicorp.com/terraform/language/expressions/types)
 
 ### Expression Types and Values
-![expression-types](journal/assets/week-1/tf-expression-types.png)
+<img src="https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6cc6fc3bb3ca792cc74254780928e9d10a4ef099/journal/assets/week-1/tf-expression-types.png" alt="drawing" style="width:500px;"/>
 
 ### Collection Types
-![collection-types](journal/assets/week-1/tf-collection-types.png)
+<img src="https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6cc6fc3bb3ca792cc74254780928e9d10a4ef099/journal/assets/week-1/tf-collection-types.png" alt="drawing" style="width:500px;"/>
 
 [Complex Types](https://developer.hashicorp.com/terraform/language/expressions/type-constraints#complex-types)
 
@@ -3025,7 +3025,7 @@ Check current path : `path.root`
 Check for all files available under the path `public/assets` : `fileset("${path.root}/public/assets","*")`
 Check for all files available under the path `public/assets` of the type `jpg gif or png` : `fileset("${path.root}/public/assets","*.{jpg,png,gif}")`
 
-![tf-console](journal/assets/week-1/tf-console.png)
+![tf-console](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6cc6fc3bb3ca792cc74254780928e9d10a4ef099/journal/assets/week-1/tf-console.png)
 
 
 9.8 We will now configure the `for each` in our `modules/terrahouse_aws/resource-storage.tf`
@@ -3076,7 +3076,7 @@ bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
 cloudfront_url = "d22vgumlowph2m.cloudfront.net"
 s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
 ```
-![view-cdn](journal/assets/week-1/week1-assets-cdn.png)
+<img src="https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6cc6fc3bb3ca792cc74254780928e9d10a4ef099/journal/assets/week-1/week1-assets-cdn.png" alt="drawing" style="width:300px;"/>
 
 9.13 Update the documentation
 
@@ -3089,5 +3089,35 @@ s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.
 9.17 Issue tags to the `main branch` as `1.8.0`
 
 10. ## Working Through Git Graph Issues
+10.1 Create a new issue in your Github repositiory.
+
+```txt
+Issue name: Add Git Graph to Gitpod Configuration
+Issue description: We want to add the git graph extensions in hopes of fixing our git graph issues.
+Label: bug
+```
+
+10.2 Create a branch for this issue and launch it in Gitpod.
+
+10.3 Add the _Git Graph_ extensions in `.gitpod.yml`
+
+```yml
+vscode:
+  extensions:
+    - amazonwebservices.aws-toolkit-vscode
+    - hashicorp.terraform
+    - phil294.git-log--graph
+    - mhutchie.git-graph
+```
+
+10.4 Update the documentation
+
+10.5 Stage, commit and sync the changed to Github
+
+10.6  Create a PR and Merge this branch `37-add-git-graph-to-gitpod-configuration` to the `main` branch.
+
+10.7 Issue tags to the `main branch` as `1.9.0`
 
 11. ## Project Validation
+
+![Week1-Validation](assets/week-1/week1-validation.png)
