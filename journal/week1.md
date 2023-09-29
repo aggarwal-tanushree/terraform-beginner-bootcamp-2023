@@ -16,6 +16,8 @@
     + [var-file flag](#var-file-flag)
     + [auto.tfvars](#autotfvars)
   * [Order of terraform input variables](#order-of-terraform-input-variables)
+    + [Regex with variable conditions](#regex-with-variable-conditions)
+    + [Considerations for using variable with Terraform Cloud](#considerations-for-using-variable-with-terraform-cloud)
 - [Dealing With Configuration Drift](#dealing-with-configuration-drift)
 - [What is Configuration drift?](#what-is-configuration-drift-)
 - [What happens if we lose our `terraform.tfstate` state file?](#what-happens-if-we-lose-our--terraformtfstate--state-file-)
@@ -38,6 +40,17 @@
 - [Terraform Locals](#terraform-locals)
 - [Terraform Data Sources](#terraform-data-sources)
 - [Defining IAM Policies in TF code - Working with JSON](#defining-iam-policies-in-tf-code---working-with-json)
+  * [Changing the Lifecycle of Resources](#changing-the-lifecycle-of-resources)
+- [Terraform Data](#terraform-data)
+- [Provisioners](#provisioners)
+  * [Local-exec](#local-exec)
+  * [Remote-exec](#remote-exec)
+- [Heredoc String](#heredoc-string)
+- [Fileset Function](#fileset-function)
+- [For Each Expressions](#for-each-expressions)
+- [Terraform Expressions](#terraform-expressions)
+  * [Expression Types and Values](#expression-types-and-values)
+  * [Collection Types](#collection-types)
 
 
 [Personal Documentation](#personal-documentation) :memo: :pencil:
@@ -55,8 +68,8 @@
 | [Content Delivery Network](#content-delivery-network) | <ul><li> [x] </li></ul> |
 | [Terraform Data and Content Version](#terraform-data-and-content-version) | <ul><li> [x] </li></ul> |
 | [Invalidate Cache and Local Exec](#invalidate-cache-and-local-exec) | <ul><li> [x] </li></ul> |
-| [Assets Upload and For Each](#assets-upload-and-for-each) | <ul><li> [ ] </li></ul> |
-| [Working Through Git Graph Issues](#working-through-git-graph-issues) | <ul><li> [ ] </li></ul> |
+| [Assets Upload and For Each](#assets-upload-and-for-each) | <ul><li> [x] </li></ul> |
+| [Working Through Git Graph Issues](#working-through-git-graph-issues) | <ul><li> [x] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
 
 # Week 1 Architecture
@@ -235,7 +248,30 @@ terraform apply -var-file="dev.tfvars"
 ### Order of terraform input variables
 <img src="https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/04391377d8501643fece4e04ef8b97a9fd51dcf0/journal/assets/week-1/TF-var-precedence.gif"  width="40%" height="30%">
 
+[Variable Precedence](https://developer.hashicorp.com/terraform/language/values/variables#variable-definition-precedence)
 
+#### Regex with variable conditions
+`regex` applies a regular expression to a string and returns the matching substrings.
+[Terraform Regex](https://developer.hashicorp.com/terraform/language/functions/regex)
+
+```
+variable "user_uuid" {
+  description = "The UUID of the user"
+  type        = string
+  validation {
+    condition        = can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$", var.user_uuid))
+    error_message    = "The user_uuid value is not a valid UUID."
+  }
+}
+```
+
+#### Considerations for using variable with Terraform Cloud
+
+You can set two different types of variables in Terraform cloud
+- Environment Variables - vars that are required for the functionality to work. (those you would normally set in $PATH of your bash terminal). Vars like AWS access key, secret access key and region would be a few examples.
+- Terraform Variables - Those that you would normally set in the `terraform.tfvars` file
+
+https://developer.hashicorp.com/terraform/cloud-docs/workspaces/variables
 
 ## Dealing With Configuration Drift
 
@@ -260,7 +296,7 @@ Command to import S3 bucket: `terraform import aws_s3_bucket.<bucket-variable-na
 example: ``tf import aws_s3_bucket.example <bucket_name>``
 
 ### Terraform import block TFv1.5.0
-https://www.hashicorp.com/blog/terraform-1-5-brings-config-driven-import-and-checks?source=post_page-----a6ca245a7daf--------------------------------
+[Terraform Import](https://www.hashicorp.com/blog/terraform-1-5-brings-config-driven-import-and-checks?source=post_page-----a6ca245a7daf--------------------------------)
 The import block takes two required arguments one optional argument.:
 `to` - The instance address this resource will have in your state file. for example, you can provide a resource id for your Azure resource.
 `id` - A string with the import ID of the resource in your terraform configuration file.
@@ -369,6 +405,15 @@ module "terrahouse_aws" {
 ```tf
 output "bucket_name" {
   value = aws_s3_bucket.website_bucket.bucket
+}
+```
+
+The outputs are only **visible within the module itself**. If we want to have the outputs available at the root level, we need to make reference in the root `outputs.tf` to the output of the module.
+eg:
+```tf
+output "bucket_name" {
+    description = "Bucket name for our static website"
+    value = module.terrahouse_aws.bucket_name               
 }
 ```
 
@@ -594,6 +639,52 @@ aws cloudfront create-invalidation \
 
 https://developer.hashicorp.com/terraform/language/expressions/strings#heredoc-strings
 
+
+## Fileset Function
+Fileset enumerates a set of regular file names given a path and pattern.
+
+```tf
+fileset(path, pattern)
+```
+
+[Fileset ](https://developer.hashicorp.com/terraform/language/functions/fileset)
+
+A common use of `fileset` is to create one resource instance per matched file, using the for_each meta-argument
+
+```tf
+resource "example_thing" "example" {
+  for_each = fileset(path.module, "files/*")
+
+  # other configuration using each.value
+}
+
+```
+
+## For Each Expressions
+
+For each allows us to enumerate over complex data types.
+
+```sh
+[for s in var.list : upper(s)]
+```
+
+This is mostly useful when you are creating multiples of a cloud resource and you want to reduce the amount of repetitive terraform code.
+
+[For Each Expressions](https://developer.hashicorp.com/terraform/language/meta-arguments/for_each)
+
+
+## Terraform Expressions
+Expressions are used to refer to or compute values within a configuration.
+[Terraform expressions](https://developer.hashicorp.com/terraform/language/expressions/types)
+
+### Expression Types and Values
+![expression-types](journal/assets/week-1/tf-expression-types.png)
+
+### Collection Types
+![collection-types](journal/assets/week-1/tf-collection-types.png)
+
+[Complex Types](https://developer.hashicorp.com/terraform/language/expressions/type-constraints#complex-types)
+
 -----------------------------------------------------------------------------------------------------
 
 # Personal Documentation 
@@ -669,7 +760,7 @@ variable "user_uuid" {
     error_message    = "The user_uuid value is not a valid UUID."
   }
 }
-``
+```
 
 2.8 Next, we would like to add `tags`  to our `S3 bucket` (it will be the name of our S3 bucket). We need to verify in the [Terraform Registry S3 bucket documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket) if S3 buckets support tagging and the associated syntax.
 Add `tags` to S3 bucket resource in `main.tf`
@@ -2867,3 +2958,136 @@ s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.
 8.13 Issue tags to the `main branch` as `1.7.0`
 
 9. ## Assets Upload and For Each
+9.1 Create an `Issue`
+```txt
+Assets Upload
+[ ] use for each to upload assets
+[ ] explore different data structures in terraform
+[ ] Terraform console
+ 
+Label: enhancement
+```
+
+9.2 Create a branch and launch in Gitpod.
+
+9.3 Create an `assets` directory under `public` and upload a few images for our TerraHome in it. Reference the images in `public/index.html`
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pokemon</title>
+</head>
+<body>
+    <h1>How to get starting playing Pokemon!<h1>
+    <img src="/assets/pokemon.png" />
+    <img src="/assets/pokemon-pikachu.jpg" />
+</body>
+</html>
+```
+
+9.4 Update `.gitpod.yml` file to install a `http web server`
+
+```yml
+tasks:
+  - name: terraform
+    before: |
+      source ./bin/set_tf_alias
+      source ./bin/install_terraform_cli
+      source ./bin/generate_tfrc_credentials
+      cp $PROJECT_ROOT/terraform.tfvars.example $PROJECT_ROOT/terraform.tfvars
+  - name: aws-cli
+    env:
+      AWS_CLI_AUTO_PROMPT: on-partial
+    before: |
+      source ./bin/set_tf_alias
+      source ./bin/install_aws_cli
+  - name: http-server
+    before: |
+      npm install --global http-server
+    command: 
+      http-server
+
+vscode:
+  extensions:
+    - amazonwebservices.aws-toolkit-vscode
+    - hashicorp.terraform
+```
+
+9.5 Install htpp-server in your current env.
+At the terminal: `npm install --global http-server`, followed by `http-server` Make the port public. Open the URL in a web browser to check if the images are loaded.
+
+9.6 Run `tf init` followed by `tf console`
+
+9.7 We will experiment with a few commands at the `console`
+Check current path : `path.root`
+Check for all files available under the path `public/assets` : `fileset("${path.root}/public/assets","*")`
+Check for all files available under the path `public/assets` of the type `jpg gif or png` : `fileset("${path.root}/public/assets","*.{jpg,png,gif}")`
+
+![tf-console](journal/assets/week-1/tf-console.png)
+
+
+9.8 We will now configure the `for each` in our `modules/terrahouse_aws/resource-storage.tf`
+```tf
+resource "aws_s3_object" "upload_assets" {
+  for_each = fileset(var.assets_path,"*.{jpg,png,gif}")
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "assets/${each.key}"
+  source = "${var.assets_path}/${each.key}"
+  etag = filemd5("${var.assets_path}${each.key}")
+  lifecycle {
+    replace_triggered_by = [terraform_data.content_version.output]
+    ignore_changes = [etag]
+  }
+}
+```
+
+9.9 Define the variable `var.assets_path` in `/modules/terrahouse_aws/variables.tf`
+```tf
+variable "assets_path" {
+  description = "Path to assets folder"
+  type = string
+}
+```
+
+Also reference it in `./variables.tf`
+```tf
+variable "assets_path" {
+  description = "Path to assets folder"
+  type = string
+}
+```
+
+9.10 Reference the `assets_path` var in `main.tf` under `module "terrahouse_aws" {`
+```tf
+ assets_path = var.assets_path
+``` 
+ 
+9.11 Define the assets path in `terraform.tfvars.example` and `terraform.tfvars`
+```tf
+assets_path="/workspace/terraform-beginner-bootcamp-2023/public/assets/"
+```
+
+9.12 Run `tf init`, `tf plan` and `tf apply --auto-approve`. Check the CloudFront URL to see if the images are loaded there.
+```tf
+gitpod /workspace/terraform-beginner-bootcamp-2023 (35-assets-upload) $ tf output
+bucket_name = "jvf0qijub046z6nj13vhm9463gjgf9g7"
+cloudfront_url = "d22vgumlowph2m.cloudfront.net"
+s3_website_endpoint = "jvf0qijub046z6nj13vhm9463gjgf9g7.s3-website.eu-central-1.amazonaws.com"
+```
+![view-cdn](journal/assets/week-1/week1-assets-cdn.png)
+
+9.13 Update the documentation
+
+9.14 Stage, commit and sync the changed to Github
+
+9.15  Create a PR and Merge this branch `35-assets-upload` to the `main` branch.
+
+9.16 `tf destroy`
+
+9.17 Issue tags to the `main branch` as `1.8.0`
+
+10. ## Working Through Git Graph Issues
+
+11. ## Project Validation
