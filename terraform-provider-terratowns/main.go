@@ -7,7 +7,7 @@ package main
 import (
 	// "log"  // used for logging in validation func
 	"fmt"  // used in main to print std output
-	"github.com/google/uuid"  // used by validation func for validating the UUID format
+	// "github.com/google/uuid"  // used by validation func for validating the UUID format
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema" // for ResourcesMap and DataSourcesMap in Provider func
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"   // being used in main func by plugin.Serve(&plugin.ServeOpts
 )
@@ -27,7 +27,7 @@ func Provider() *schema.Provider {
 	var p *schema.Provider // defined a variable p which is going to reference the provider
 	p = &schema.Provider{
 		ResourcesMap:  map[string]*schema.Resource{ // maps to actual resources
-			"terratowns_home": Resource(),
+
 		},
 		DataSourcesMap:  map[string]*schema.Resource{  // maps to fields of a resource
 
@@ -57,7 +57,7 @@ func Provider() *schema.Provider {
 }
 
 // validation func to ensure UUID is in the expected format
-func validateUUID(v interface{}, k string) (ws []string, errors []error) {  //array of string and array of errors
+/* func validateUUID(v interface{}, k string) (ws []string, errors []error) {  //array of string and array of errors
 	log.Print("validateUUID:start")  //logging 
 	value := v.(string)
 	if _, err := uuid.Parse(value); err != nil {
@@ -65,4 +65,4 @@ func validateUUID(v interface{}, k string) (ws []string, errors []error) {  //ar
 	}
 	log.Print("validateUUID:end")
 	return
-}
+}*/

@@ -14,7 +14,7 @@
 | [Week 2 Diagramming](#week-2-diagramming)  | <ul><li> [x] </li></ul> |
 | [Setting Up Terraform Mock Server](#setting-up-terraform-mock-server) | <ul><li> [x] </li></ul> |
 | [Setup Skeleton For Custom Terraform Provider](#setup-skeleton-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
-| [Provider Block For Custom Terraform Provider](#provider-block-for-custom-terraform-provider) | <ul><li> [ ] </li></ul> |
+| [Provider Block For Custom Terraform Provider](#provider-block-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
 | [Resource Skeleton](#resource-skeleton) | <ul><li> [ ] </li></ul> |
 | [Implementing CRUD](#implementing-crud) | <ul><li> [ ] </li></ul> |
 | [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [ ] </li></ul> |
@@ -48,10 +48,11 @@ i)  `TerraTowns` : `Development (Mock) Server` : `sinatra` server :  `localhost:
 
 ii) `TerraTowns.cloud` : `Production Server` : `rails`
 
-Sinatra: light-weight web server
-Rails : heavy-duty production server
+> Sinatra: light-weight web server
+> Rails : heavy-duty production server
 
 We will use `bash scripts` under the path `/bin/terratowns/` to mock each of the four HTTP requests : 
+
 i)   `create` 
 
 ii)  `read`
@@ -155,6 +156,30 @@ a1001 - token/code/access-code does not match
 a1002 - user_uuid not passed in HTTP header
 
 a1003 - token/code/acess-code and user_uuid
+
+## CRUD
+
+Terraform Provider resources utilize CRUD.
+
+CRUD stands for Create, Read Update, and Delete
+
+https://en.wikipedia.org/wiki/Create,_read,_update_and_delete
+
+## More Terraform
+
+### Terraform CLI Config File
+`.terraformrc` or `terraform.rc` file
+- configures per-user settings for CLI behaviors, which apply across all Terraform working directories.
+
+- In our project, this file tells TF the location of the code of our custom TF provider. 
+https://developer.hashicorp.com/terraform/cli/config/config-file
+
+
+### Debugging Terraform
+Terraform has detailed logs that you can enable by setting the `TF_LOG` environment variable to any value. Enabling this setting causes detailed logs to appear on `stderr`.
+
+`TF_LOG=DEBUG tf init`
+https://developer.hashicorp.com/terraform/internals/debugging
 
 -----------------------------------------------------------------------------------------------------
 
@@ -282,7 +307,7 @@ vscode:
 
 2.8 Grant executable permissions to these files.
 ```sh
-cd ~
+cd $PROJECT_ROOT
 chmod u+x bin/terratowns/*
 ```
 
@@ -306,6 +331,8 @@ bundle install
 bundle exec ruby server.rb
 ```
 
+Output:
+```sh
 cd terratowns_mock_server/
 gitpod /workspace/terraform-beginner-bootcamp-2023/terratowns_mock_server (39-terratowns-mock-server) $ bundle install
 Bundler 2.4.20 is running, but your lockfile was generated with 2.4.19. Installing Bundler 2.4.19 and restarting using that version.
@@ -664,3 +691,258 @@ gitpod /workspace/terraform-beginner-bootcamp-2023/terraform-provider-terratowns
 
 3.14 Issue tags to the `main branch` as `2.1.0`
 
+4. ## Provider Block For Custom Terraform Provider
+4.1 Launch the branch `41-terratowns-provider` in Gitpod
+
+4.2 Grant the script executable permissions
+`chmod u+x bin/build_provider
+
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ chmod u+x bin/build_provider 
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ ls -l bin/build_provider
+-rwxr--r-- 1 gitpod gitpod 629 Oct  3 18:27 bin/build_provider
+```
+
+4.3 Let's test our bash script `bin/build_provider`
+```sh
+cd $PROJECT_ROOT
+./bin/build_provider
+```
+
+Check if it worked
+```sh
+cd /home/gitpod/.terraform.d/plugins/
+ls -al
+cd local.providers/local/terratowns/1.0.0
+ls -al
+cd x86_64
+ls -al
+```
+
+Output:
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ ./bin/build_provider
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ cd /home/gitpod/.terraform.d/plugins/
+gitpod ~/.terraform.d/plugins $ ls -al
+total 0
+drwxr-xr-x 3 gitpod gitpod 29 Oct  3 18:35 .
+drwxr-xr-x 3 gitpod gitpod 78 Oct  3 18:35 ..
+drwxr-xr-x 3 gitpod gitpod 19 Oct  3 18:35 local.providers
+gitpod ~/.terraform.d/plugins $ cd local.providers/local/terratowns/1.0.0
+gitpod ~/.terraform.d/plugins/local.providers/local/terratowns/1.0.0 $ ls -al
+total 0
+drwxr-xr-x 4 gitpod gitpod 39 Oct  3 18:35 .
+drwxr-xr-x 3 gitpod gitpod 19 Oct  3 18:35 ..
+drwxr-xr-x 2 gitpod gitpod 50 Oct  3 18:35 linux_amd64
+drwxr-xr-x 2 gitpod gitpod 50 Oct  3 18:35 x86_64
+gitpod ~/.terraform.d/plugins/local.providers/local/terratowns/1.0.0 $ cd linux_amd64/
+gitpod ~/.terraform.d/plugins/local.providers/local/terratowns/1.0.0/linux_amd64 $ ls -l
+total 20560
+-rwxr-xr-x 1 gitpod gitpod 21051751 Oct  3 18:35 terraform-provider-terratowns_v1.0.0
+gitpod ~/.terraform.d/plugins/local.providers/local/terratowns/1.0.0/linux_amd64 $ 
+```
+
+4.4 Now let's focus on the custom provider.
+4.4.1 In the `./main.tf` comment out the existing providers temporarily. 
+
+Add a `required provider` block for the custom provider we created.
+
+```tf
+  required_providers {
+    terratowns = {
+      source = "local.providers/local/terratowns"
+      version = "1.0.0"
+    }
+```
+Also create an soociated `provider` block with mock `user_uuid` and `token` that were configured in our `mock Sinatra server`, which is running on our `localhost`
+```tf
+provider "terratowns" {
+  endpoint = "http://localhost:4567"
+  user_uuid="e328f4ab-b99f-421c-84c9-4ccea042c7d1" 
+  token="9b49b3fb-b8e9-483c-b703-97ba88eef8e0"
+}
+```
+
+4.4.2 Comment out `./outputs.tf` as well, else our `tf plan` will have errors.
+
+4.5 Moment of truth! Let's check if our custom provider works.
+4.5.1 `tf init`
+
+Notice the warning, thats becaue of a type we made in `terraformrc`. 
+4.5.2 Let's fix it : 
+```tf
+provider_installation {
+  filesystem_mirror {
+    path = "/home/gitpod/.terraform.d/plugins"
+    include = ["local.providers/*/*"]
+  } 
+  direct {
+   exclude = ["local.providers/*/*"] 
+  }
+}
+```
+4.5.3 Reattempt `tf init`, but run the `./bin/build_provider` before doing so, so the `terraformrc` file is copied to its correct place.
+We can run the Terraform commands with a `DEBUG` flag. This increases the log levels/details.
+`TF_LOG=DEBUG tf init` or `export TF_LOG=DEBUG` to the shell so it does not need to be typed again and again.
+
+Output:
+```tf
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ export TF_LOG=DEBUG
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ tf plan
+2023-10-03T18:40:57.130Z [INFO]  Terraform version: 1.5.7
+2023-10-03T18:40:57.130Z [DEBUG] using github.com/hashicorp/go-tfe v1.26.0
+2023-10-03T18:40:57.130Z [DEBUG] using github.com/hashicorp/hcl/v2 v2.16.2
+2023-10-03T18:40:57.130Z [DEBUG] using github.com/hashicorp/terraform-svchost v0.1.0
+2023-10-03T18:40:57.130Z [DEBUG] using github.com/zclconf/go-cty v1.12.2
+2023-10-03T18:40:57.130Z [INFO]  Go runtime version: go1.20.7
+2023-10-03T18:40:57.130Z [INFO]  CLI args: []string{"terraform", "plan"}
+2023-10-03T18:40:57.130Z [DEBUG] Attempting to open CLI config file: /home/gitpod/.terraformrc
+2023-10-03T18:40:57.131Z [INFO]  Loading CLI configuration from /home/gitpod/.terraformrc
+2023-10-03T18:40:57.131Z [INFO]  Loading CLI configuration from /home/gitpod/.terraform.d/credentials.tfrc.json
+2023-10-03T18:40:57.131Z [DEBUG] checking for credentials in "/home/gitpod/.terraform.d/plugins"
+2023-10-03T18:40:57.131Z [DEBUG] Explicit provider installation configuration is set
+2023-10-03T18:40:57.131Z [INFO]  CLI command args: []string{"plan"}
+2023-10-03T18:40:57.133Z [DEBUG] New state was assigned lineage "c1578abb-c2a7-ba08-608e-ac4acdf25496"
+2023-10-03T18:40:57.190Z [DEBUG] checking for provisioner in "."
+2023-10-03T18:40:57.194Z [DEBUG] checking for provisioner in "/usr/bin"
+2023-10-03T18:40:57.194Z [DEBUG] checking for provisioner in "/home/gitpod/.terraform.d/plugins"
+2023-10-03T18:40:57.195Z [INFO]  backend/local: starting Plan operation
+2023-10-03T18:40:57.196Z [DEBUG] created provider logger: level=debug
+2023-10-03T18:40:57.196Z [INFO]  provider: configuring client automatic mTLS
+2023-10-03T18:40:57.229Z [DEBUG] provider: starting plugin: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 args=[.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0]
+2023-10-03T18:40:57.230Z [DEBUG] provider: plugin started: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 pid=8505
+2023-10-03T18:40:57.230Z [DEBUG] provider: waiting for RPC address: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0
+2023-10-03T18:40:57.235Z [INFO]  provider.terraform-provider-terratowns_v1.0.0: configuring server automatic mTLS: timestamp=2023-10-03T18:40:57.235Z
+2023-10-03T18:40:57.249Z [DEBUG] provider: using plugin: version=5
+2023-10-03T18:40:57.249Z [DEBUG] provider.terraform-provider-terratowns_v1.0.0: plugin address: address=/tmp/plugin1197020984 network=unix timestamp=2023-10-03T18:40:57.249Z
+2023-10-03T18:40:57.268Z [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2023-10-03T18:40:57.270Z [DEBUG] provider: plugin process exited: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 pid=8505
+2023-10-03T18:40:57.270Z [DEBUG] provider: plugin exited
+2023-10-03T18:40:57.270Z [DEBUG] Building and walking validate graph
+2023-10-03T18:40:57.270Z [DEBUG] pruning unused provider["local.providers/local/terratowns"]
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.index_html_filepath" references: []
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.error_html_filepath" references: []
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.content_version" references: []
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.assets_path" references: []
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.user_uuid" references: []
+2023-10-03T18:40:57.270Z [DEBUG] ReferenceTransformer: "var.bucket_name" references: []
+2023-10-03T18:40:57.270Z [DEBUG] Starting graph walk: walkValidate
+2023-10-03T18:40:57.271Z [INFO]  backend/local: plan calling Plan
+2023-10-03T18:40:57.271Z [DEBUG] Building and walking plan graph for NormalMode
+2023-10-03T18:40:57.271Z [DEBUG] pruning unused provider["local.providers/local/terratowns"]
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.bucket_name" references: []
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.index_html_filepath" references: []
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.error_html_filepath" references: []
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.content_version" references: []
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.assets_path" references: []
+2023-10-03T18:40:57.271Z [DEBUG] ReferenceTransformer: "var.user_uuid" references: []
+2023-10-03T18:40:57.271Z [DEBUG] Starting graph walk: walkPlan
+2023-10-03T18:40:57.272Z [DEBUG] no planned changes, skipping apply graph check
+2023-10-03T18:40:57.272Z [INFO]  backend/local: plan operation completed
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ tf apply
+2023-10-03T18:41:01.992Z [INFO]  Terraform version: 1.5.7
+2023-10-03T18:41:01.992Z [DEBUG] using github.com/hashicorp/go-tfe v1.26.0
+2023-10-03T18:41:01.992Z [DEBUG] using github.com/hashicorp/hcl/v2 v2.16.2
+2023-10-03T18:41:01.992Z [DEBUG] using github.com/hashicorp/terraform-svchost v0.1.0
+2023-10-03T18:41:01.992Z [DEBUG] using github.com/zclconf/go-cty v1.12.2
+2023-10-03T18:41:01.992Z [INFO]  Go runtime version: go1.20.7
+2023-10-03T18:41:01.992Z [INFO]  CLI args: []string{"terraform", "apply"}
+2023-10-03T18:41:01.992Z [DEBUG] Attempting to open CLI config file: /home/gitpod/.terraformrc
+2023-10-03T18:41:01.993Z [INFO]  Loading CLI configuration from /home/gitpod/.terraformrc
+2023-10-03T18:41:01.993Z [INFO]  Loading CLI configuration from /home/gitpod/.terraform.d/credentials.tfrc.json
+2023-10-03T18:41:01.993Z [DEBUG] checking for credentials in "/home/gitpod/.terraform.d/plugins"
+2023-10-03T18:41:01.993Z [DEBUG] Explicit provider installation configuration is set
+2023-10-03T18:41:01.994Z [INFO]  CLI command args: []string{"apply"}
+2023-10-03T18:41:01.994Z [DEBUG] New state was assigned lineage "3391de4d-5835-c5a1-d64e-e937a98758d5"
+2023-10-03T18:41:02.051Z [DEBUG] checking for provisioner in "."
+2023-10-03T18:41:02.055Z [DEBUG] checking for provisioner in "/usr/bin"
+2023-10-03T18:41:02.055Z [DEBUG] checking for provisioner in "/home/gitpod/.terraform.d/plugins"
+2023-10-03T18:41:02.055Z [INFO]  backend/local: starting Apply operation
+2023-10-03T18:41:02.056Z [DEBUG] created provider logger: level=debug
+2023-10-03T18:41:02.056Z [INFO]  provider: configuring client automatic mTLS
+2023-10-03T18:41:02.090Z [DEBUG] provider: starting plugin: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 args=[.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0]
+2023-10-03T18:41:02.090Z [DEBUG] provider: plugin started: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 pid=8549
+2023-10-03T18:41:02.090Z [DEBUG] provider: waiting for RPC address: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0
+2023-10-03T18:41:02.095Z [INFO]  provider.terraform-provider-terratowns_v1.0.0: configuring server automatic mTLS: timestamp=2023-10-03T18:41:02.095Z
+2023-10-03T18:41:02.110Z [DEBUG] provider: using plugin: version=5
+2023-10-03T18:41:02.110Z [DEBUG] provider.terraform-provider-terratowns_v1.0.0: plugin address: address=/tmp/plugin38076231 network=unix timestamp=2023-10-03T18:41:02.110Z
+2023-10-03T18:41:02.129Z [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2023-10-03T18:41:02.130Z [DEBUG] provider: plugin process exited: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 pid=8549
+2023-10-03T18:41:02.130Z [DEBUG] provider: plugin exited
+2023-10-03T18:41:02.130Z [DEBUG] Building and walking validate graph
+2023-10-03T18:41:02.130Z [DEBUG] pruning unused provider["local.providers/local/terratowns"]
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.error_html_filepath" references: []
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.content_version" references: []
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.assets_path" references: []
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.user_uuid" references: []
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.bucket_name" references: []
+2023-10-03T18:41:02.130Z [DEBUG] ReferenceTransformer: "var.index_html_filepath" references: []
+2023-10-03T18:41:02.131Z [DEBUG] Starting graph walk: walkValidate
+2023-10-03T18:41:02.131Z [INFO]  backend/local: apply calling Plan
+2023-10-03T18:41:02.131Z [DEBUG] Building and walking plan graph for NormalMode
+2023-10-03T18:41:02.131Z [DEBUG] pruning unused provider["local.providers/local/terratowns"]
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.bucket_name" references: []
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.index_html_filepath" references: []
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.error_html_filepath" references: []
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.content_version" references: []
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.assets_path" references: []
+2023-10-03T18:41:02.131Z [DEBUG] ReferenceTransformer: "var.user_uuid" references: []
+2023-10-03T18:41:02.131Z [DEBUG] Starting graph walk: walkPlan
+2023-10-03T18:41:02.132Z [DEBUG] no planned changes, skipping apply graph check
+
+No changes. Your infrastructure matches the configuration.
+
+Terraform has compared your real infrastructure against your configuration and found no differences, so no changes are needed.
+2023-10-03T18:41:02.132Z [INFO]  backend/local: apply calling Apply
+2023-10-03T18:41:02.132Z [DEBUG] Building and walking apply graph for NormalMode plan
+2023-10-03T18:41:02.132Z [DEBUG] pruning unused provider["local.providers/local/terratowns"]
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.user_uuid" references: []
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.bucket_name" references: []
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.index_html_filepath" references: []
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.error_html_filepath" references: []
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.content_version" references: []
+2023-10-03T18:41:02.132Z [DEBUG] ReferenceTransformer: "var.assets_path" references: []
+2023-10-03T18:41:02.132Z [DEBUG] Starting graph walk: walkApply
+
+Apply complete! Resources: 0 added, 0 changed, 0 destroyed.
+```
+
+4.5.4 Since we are still in the development phase, it is a good idea to run our TF code in debug mode all the time. This can be set by updating our `.gitpod.yml` file.
+```yml
+tasks:
+  - name: terraform
+    env:
+      TF_LOG: DEBUG
+```
+
+4.5.4 Run `tf plan` and `tf apply`. Check for errors, also check `terraform.tfstate` file.
+
+4.6 Add required documentation
+
+4.7 Stage, Commit and Sync 
+
+4.8 Create a PR and Merge this branch `41-terratowns-provider` to the `main` branch. We have conflicts, since we are using the branch we used for the previous tag as well.
+
+4.9 Fix conflicts in Gitpod
+`git merge main`
+Commit again `#41 Merge main with 41-terratowns-provider`  
+`git commit`
+`git push`
+
+
+4.10 Back in Gitpod try creating the PR now. It should work. Merge.
+
+4.11 Add tags `2.2.0`
