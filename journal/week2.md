@@ -15,7 +15,7 @@
 | [Setting Up Terraform Mock Server](#setting-up-terraform-mock-server) | <ul><li> [x] </li></ul> |
 | [Setup Skeleton For Custom Terraform Provider](#setup-skeleton-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
 | [Provider Block For Custom Terraform Provider](#provider-block-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
-| [Resource Skeleton](#resource-skeleton) | <ul><li> [ ] </li></ul> |
+| [Resource Skeleton](#resource-skeleton) | <ul><li> [x] </li></ul> |
 | [Implementing CRUD](#implementing-crud) | <ul><li> [ ] </li></ul> |
 | [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [ ] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
@@ -695,7 +695,7 @@ gitpod /workspace/terraform-beginner-bootcamp-2023/terraform-provider-terratowns
 4.1 Launch the branch `41-terratowns-provider` in Gitpod
 
 4.2 Grant the script executable permissions
-`chmod u+x bin/build_provider
+`chmod u+x bin/build_provider``
 
 ```sh
 gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ chmod u+x bin/build_provider 
@@ -946,3 +946,167 @@ Commit again `#41 Merge main with 41-terratowns-provider`
 4.10 Back in Gitpod try creating the PR now. It should work. Merge.
 
 4.11 Add tags `2.2.0`
+
+5. ## Resource Skeleton
+5.1 Launch the branch `41-terratowns-provider` in Gitpod
+
+5.2 Let's resume building our custom provider.
+Open `terraform-provider-terratowns/main.go` file
+Uncomment the previously created `validation` functionality.
+```sh
+// validation func to ensure UUID is in the expected format
+func validateUUID(v interface{}, k string) (ws []string, errors []error) {  //array of string and array of errors
+	log.Print("validateUUID:start")  //logging 
+	value := v.(string)
+	if _, err := uuid.Parse(value); err != nil {
+		errors = append(errors, fmt.Errorf("invalid UUID format"))
+	}
+	log.Print("validateUUID:end")
+	return
+}
+```
+
+5.3 Build the provider. `./bin/build_provider`
+Fix any code errors that may be present.
+
+Output:
+```sh
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ ./bin/build_provider
+go: downloading github.com/google/uuid v1.3.1
+go: downloading github.com/hashicorp/terraform-plugin-sdk/v2 v2.29.0
+go: downloading github.com/hashicorp/go-cty v1.4.1-0.20200414143053-d3edf31b6320
+go: downloading github.com/mitchellh/copystructure v1.2.0
+go: downloading github.com/hashicorp/go-multierror v1.1.1
+go: downloading github.com/mitchellh/go-testing-interface v1.14.1
+go: downloading github.com/google/go-cmp v0.5.9
+go: downloading github.com/mitchellh/mapstructure v1.5.0
+go: downloading github.com/hashicorp/terraform-plugin-log v0.9.0
+go: downloading github.com/hashicorp/terraform-plugin-go v0.19.0
+go: downloading github.com/hashicorp/go-version v1.6.0
+go: downloading github.com/hashicorp/go-uuid v1.0.3
+go: downloading github.com/mitchellh/reflectwalk v1.0.2
+go: downloading github.com/hashicorp/go-hclog v1.5.0
+go: downloading github.com/hashicorp/go-plugin v1.5.1
+go: downloading github.com/hashicorp/logutils v1.0.0
+go: downloading github.com/hashicorp/hcl/v2 v2.18.0
+go: downloading github.com/zclconf/go-cty v1.14.0
+go: downloading github.com/hashicorp/errwrap v1.0.0
+go: downloading github.com/fatih/color v1.13.0
+go: downloading github.com/mattn/go-isatty v0.0.14
+go: downloading github.com/vmihailenco/msgpack v4.0.4+incompatible
+go: downloading golang.org/x/text v0.13.0
+go: downloading github.com/golang/protobuf v1.5.3
+go: downloading github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
+go: downloading github.com/oklog/run v1.0.0
+go: downloading google.golang.org/grpc v1.57.0
+go: downloading github.com/vmihailenco/msgpack/v5 v5.3.5
+go: downloading github.com/mattn/go-colorable v0.1.12
+go: downloading golang.org/x/sys v0.12.0
+go: downloading google.golang.org/protobuf v1.31.0
+go: downloading github.com/hashicorp/terraform-registry-address v0.2.2
+go: downloading github.com/vmihailenco/tagparser/v2 v2.0.0
+go: downloading github.com/agext/levenshtein v1.2.2
+go: downloading github.com/apparentlymart/go-textseg/v15 v15.0.0
+go: downloading github.com/mitchellh/go-wordwrap v1.0.0
+go: downloading github.com/hashicorp/terraform-svchost v0.1.1
+go: downloading golang.org/x/net v0.13.0
+go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19
+gitpod /workspace/terraform-beginner-bootcamp-2023 (41-terratowns-provider) $ 
+```
+
+5.4 Run `tf init` and `tf plan`. Check for errors.
+All good so far!
+
+Let's proceed with writing the remaining code
+
+5.5 Uncomment `p.ConfigureContextFunc = providerConfigure(p)` in `terraform-provider-terratowns/main.go`  
+5.5.1 write this function `providerConfigure` code:
+
+```sh
+func providerConfigure(p *schema.Provider) schema.ConfigureContextFunc {  //definition of func providerConfigure, takes argument pointer p
+	// p is pomter to Provider object of TF schema package
+	return func(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics ) {
+		log.Print("providerConfigure:start")
+		config := Config{ //variable named config. Config is a struct defined in our code
+			Endpoint: d.Get("endpoint").(string), // Define endpint
+			Token: d.Get("token").(string),
+			UserUuid: d.Get("user_uuid").(string),
+		}
+		log.Print("providerConfigure:end")
+		return &config, nil
+	}
+}
+```
+
+5.5.2
+`import` associated packages
+```sh
+	"context"// for providerConfigure func
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag" // for providerConfigure func
+
+```
+
+5.5.3 Define the `Config` struct
+```sh
+type Config struct {
+	Endpoint string
+	Token string
+	UserUuid string
+}
+```
+
+5.6 Build the provider. `./bin/build_provider`
+
+5.7 Back in `terraform-provider-terratowns/main.go`  next we define our resource under `ResourcesMap`
+```sh
+			"terratowns_home": Resource(), 
+```
+
+5.8 Define the `Resource` function
+```sh
+// definition of Resource func
+func Resource() *schema.Resource {
+	log.Print("Resource:start")
+	resource := &schema.Resource{
+		// defining four functions (aka interfaces in Go) for the four actions
+		CreateContext: resourceHouseCreate,
+		ReadContext: resourceHouseRead,
+		UpdateContext: resourceHouseUpdate,
+		DeleteContext: resourceHouseDelete,
+	}
+	log.Print("Resource:end")
+	return resource
+}
+```
+
+Define the four functions:
+```sh
+
+func resourceHouseCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics // related to error handling
+	return diags
+}
+
+func resourceHouseRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	return diags
+}	
+
+func resourceHouseUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	return diags
+}
+
+func resourceHouseDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+	return diags
+}
+```
+
+5.9 Add required documentation
+
+5.10 Stage, Commit and Sync 
+
+5.11 Create a PR and Merge this branch `41-terratowns-provider` to the `main` branch.
+
+5.12 Add tags `2.3.0`
