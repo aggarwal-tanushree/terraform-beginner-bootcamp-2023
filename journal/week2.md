@@ -1,8 +1,24 @@
-# Terraform Beginner Bootcamp 2023  Week 2  — Building Week Journal
+# Terraform Beginner Bootcamp 2023  Week 2  — Launching and Connecting My TerraHome to TerraTowns - Journal
 
 [Week-2 Architecture](#week-2-architecture) :cloud: :evergreen_tree:
 
 [Notes for revision](#notes-for-revision) :syringe: :medal_sports:
+  * [Our Custom Provider - explained](#our-custom-provider---explained)
+  * [Working with Ruby](#working-with-ruby)
+    + [Bundler](#bundler)
+      - [Install Gems](#install-gems)
+      - [Executing ruby scripts in the context of bundler](#executing-ruby-scripts-in-the-context-of-bundler)
+    + [Sinatra](#sinatra)
+  * [Terratowns Mock Server](#terratowns-mock-server)
+    + [Running the web server](#running-the-web-server)
+    + [HTTP Requests](#http-requests)
+      - [Anatomy of a HTTP request](#anatomy-of-a-http-request)
+      - [Bearer Authentication](#bearer-authentication)
+      - [HTTP error codes](#http-error-codes)
+  * [CRUD](#crud)
+  * [More Terraform](#more-terraform)
+    + [Terraform CLI Config File](#terraform-cli-config-file)
+    + [Debugging Terraform](#debugging-terraform)
 
 [Personal Documentation](#personal-documentation) :memo: :pencil:
 
@@ -17,6 +33,7 @@
 | [Provider Block For Custom Terraform Provider](#provider-block-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
 | [Resource Skeleton](#resource-skeleton) | <ul><li> [x] </li></ul> |
 | [Implementing CRUD](#implementing-crud) | <ul><li> [x] </li></ul> |
+| [Deploying To Terratowns](#deploying-to-terratowns) | <ul><li> [x] </li></ul> |
 | [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [ ] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
 
@@ -189,7 +206,7 @@ https://developer.hashicorp.com/terraform/internals/debugging
 1. ## Week 2 Diagramming
 
 2. ## Terratowns Mock Server
-2.1 Create a new issue in your Github repositiory.
+2.1 Create a new issue in your Github repository.
 
 ```txt
 Issue name: Terratowns Mock Server
@@ -469,7 +486,7 @@ uuid 535de2f3-3549-4501-8b5e-4046f2f64b4b
 2.14 Issue tags to the `main branch` as `2.0.0`
 
 3. ## Setup Skeleton For Custom Terraform Provider
-3.1 Create a new issue in your Github repositiory.
+3.1 Create a new issue in your Github repository.
 
 ```txt
 Issue name: Terratowns Provider
@@ -1475,4 +1492,177 @@ uuid 2a27b8ce-ea87-4ee9-9b54-ef954db4f6bc
 6.11 Create a PR and Merge this branch `41-terratowns-provider` to the `main` branch.
 
 6.12 Add tags `2.4.0`
+
+7. ## Deploying To Terratowns
+7.1 Create a new issue in your Github repository.
+
+```txt
+Issue name: Terratown Test
+Issue description: test our custom provider, to work with the production server
+
+Label: enhancement
+```
+
+7.2 Create a branch for this issue and launch it in Gitpod.
+
+7.3 Update with the real production resource configuration
+
+7.3.1 Define the endpoint as a var in `terraform.tfvars.example` and `terraform.tfvars`
+
+`terratowns_endpoint ="https://terratowns.cloud/api"`
+Delete the `user_uuid` var as we will be setting this as an env var now.
+
+7.3.2 Set the `access token` as an env var
+`export TF_VAR_terratowns_access_token="<VALUE>"`
+`gp env TF_VAR_terratowns_access_token="<VALUE>"`
+
+7.3.3 Set the user_uuid as an env var
+`export TF_VAR_teacherseat_user_uuid="<VALUE>"`
+`gp env TF_VAR_teacherseat_user_uuid="<VALUE>"`
+
+7.3.4 Update `main.tf` with the var names
+```tf
+provider "terratowns" {
+  endpoint = var.terratowns_endpoint
+  user_uuid = var.teacherseat_user_uuid
+  token = var.terratowns_access_token
+}
+```
+
+7.3.5 Update the vars name in `variables.tf`
+Replace `user_uuid` with the new name `teacherseat_user_uuid`
+
+```tf
+variable "terratowns_endpoint" {
+ type = string
+}
+
+variable "terratowns_access_token" {
+ type = string
+}
+
+variable "teacherseat_user_uuid" {
+ type = string
+```
+
+7.3.6 In the resource `terratowns_home` block in `main.tf` change the town to `missingo`
+`town = "missingo"`
+
+
+7.4  Build the Provider. Check for errors.
+`./bin/build_provider`
+
+7.5 Lets' run `tf init`, `tf plan` and `tf apply`.
+
+7.6 Check if your resource was published to `https://terratowns.cloud/t/missingo`
+
+It is!!
+
+
+![test-house](assets/week-2/week2-missingo-test-1.png)
+
+
+7.7 If the verification was successful, we are good to proceed with the real infrastructure.
+Run `tf destroy`. Verify if it was deleted from `https://terratowns.cloud/t/missingo`
+
+7.8 Swap the mock CloudFront URL with the real defined resource in `main.tf`
+`domain_name = module.terrahouse_aws.cloudfront_url`
+
+7.9 Bring back the old infrastrucute that we had disabled in `main.tf` 
+```tf
+module "terrahouse_aws" {
+  source = "./modules/terrahouse_aws"
+  user_uuid = var.teacherseat_user_uuid
+  index_html_filepath = var.index_html_filepath
+  error_html_filepath = var.error_html_filepath
+  content_version = var.content_version
+  assets_path = var.assets_path
+}
+```
+
+7.10 enable all the `outputs.tf` that we had commented our previously
+```tf
+output "bucket_name" {
+  description = "Bucket name for our static website hosting"
+  value = module.terrahouse_aws.bucket_name
+}
+
+output "s3_website_endpoint" {
+  description = "S3 Static Website hosting endpoint"
+  value = module.terrahouse_aws.website_endpoint
+}
+
+output "cloudfront_url" {
+  description = "The CloudFront Distribution Domain Name"
+  value = module.terrahouse_aws.cloudfront_url
+}
+```
+
+7.11 Delete the `bucket_name` var from `terraform.tfvars` and `terraform.tfvars.example`
+7.11.2 And also from `main.tf`
+7.11.3 Also from `/modules/terrahouse_aws/resource-storage.tf`
+```tf
+resource "aws_s3_bucket" "website_bucket" {
+  # Bucket Naming Rules
+  #https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html?icmpid=docs_amazons3_console
+  bucket = var.bucket_name
+```
+7.11.4 From comment out the assoiated var in `/modules/terrahouse_aws/variables.tf`
+```tf
+#variable "bucket_name" {
+#  description = "The name of the S3 bucket"
+#  type        = string
+#
+#  validation {
+#    condition     = (
+#      length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63 && 
+#      can(regex("^[a-z0-9][a-z0-9-.]*[a-z0-9]$", var.bucket_name))
+#    )
+#    error_message = "The bucket name must be between 3 and 63 characters, start and end with a lowercase letter or number, and can contain only lowercase letters, numbers, hyphens, and dots."
+#  }
+#}
+
+```
+
+7.11.4 Update the bucket var reference in `modules/terrahouse_aws/resource-cdn.tf` with the bucket name from `outputs.tf`
+i.e. replace all occurences of `${var.bucket_name}` with `${aws_s3_bucket.website_bucket.bucket}`
+
+```tf
+resource "aws_cloudfront_origin_access_control" "default" {
+  name   = "OAC ${aws_s3_bucket.website_bucket.bucket}"
+  description  = "Origin Access Controls for Static Website Hosting ${aws_s3_bucket.website_bucket.bucket}"
+```
+
+7.12 `tf init`, `tf plan` and `tf apply`
+Check if it published to `https://terratowns.cloud/t/missingo`
+
+Output:
+```tf
+Apply complete! Resources: 12 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+bucket_name = "terraform-20231005204146795500000001"
+cloudfront_url = "du27m7x7wljt2.cloudfront.net"
+s3_website_endpoint = "terraform-20231005204146795500000001.s3-website.eu-central-1.amazonaws.com"
+```
+
+![test-house](assets/week-2/week2-missingo-test-realCDN.png)
+
+![test-house](assets/week-2/week2-missingo-test-html-working.png)
+
+7.13 Destroy the resources
+`tf destroy`
+
+```tf
+Destroy complete! Resources: 12 destroyed.
+gitpod /workspace/terraform-beginner-bootcamp-2023 (46-terratown-test) $ 
+```
+7.14 Add required documentation
+
+7.15 Stage, Commit and Sync 
+
+7.16 Create a PR and Merge this branch `46-terratown-test` to the `main` branch.
+
+7.17 Add tags `2.5.0`
 
