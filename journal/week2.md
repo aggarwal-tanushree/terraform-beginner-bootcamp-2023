@@ -16,7 +16,7 @@
 | [Setup Skeleton For Custom Terraform Provider](#setup-skeleton-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
 | [Provider Block For Custom Terraform Provider](#provider-block-for-custom-terraform-provider) | <ul><li> [x] </li></ul> |
 | [Resource Skeleton](#resource-skeleton) | <ul><li> [x] </li></ul> |
-| [Implementing CRUD](#implementing-crud) | <ul><li> [ ] </li></ul> |
+| [Implementing CRUD](#implementing-crud) | <ul><li> [x] </li></ul> |
 | [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [ ] </li></ul> |
 | [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
 
@@ -48,7 +48,8 @@ i)  `TerraTowns` : `Development (Mock) Server` : `sinatra` server :  `localhost:
 
 ii) `TerraTowns.cloud` : `Production Server` : `rails`
 
-> Sinatra: light-weight web server
+> Sinatra : light-weight web server
+
 > Rails : heavy-duty production server
 
 We will use `bash scripts` under the path `/bin/terratowns/` to mock each of the four HTTP requests : 
@@ -150,6 +151,7 @@ https://swagger.io/docs/specification/authentication/bearer-authentication/
 https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses
 
 Our error codes:
+custom aXXXX codes will help us isolate in our troubleshooting where an error may have occured. These are unique to this project and not something normally included. You want error codes to be kind of obfuscated in production environments to not give away to much information about what was wrong. Because we are learning here, these codes were implemented.
 
 a1001 - token/code/access-code does not match
 
@@ -1110,3 +1112,367 @@ func resourceHouseDelete(ctx context.Context, d *schema.ResourceData, m interfac
 5.11 Create a PR and Merge this branch `41-terratowns-provider` to the `main` branch.
 
 5.12 Add tags `2.3.0`
+
+6. ## Implementing CRUD
+6.1 Launch the branch `41-terratowns-provider` in Gitpod
+
+6.2 Let's resume building our custom provider.
+Add the schema details in the `Resource()` function.
+```sh
+Schema: map[string]*schema.Schema{  // schema definition
+			"name": {
+				Type: schema.TypeString,
+				Required: true,
+				Description: "Name of home",
+			},
+			"description": {
+				Type: schema.TypeString,
+				Required: true,
+				Description: "Description of home",
+			},
+			"domain_name": {
+				Type: schema.TypeString,
+				Required: true,
+				Description: "Domain name of home eg. *.cloudfront.net",
+			},
+			"town": {
+				Type: schema.TypeString,
+				Required: true,
+				Description: "The town to which the home will belong to",
+			},
+			"content_version": {
+				Type: schema.TypeInt,
+				Required: true,
+				Description: "The content version of the home",
+			},
+		},
+```
+
+6.3 Build the Provider. Check for errors.
+`./bin/build_provider`
+
+6.4 Back in `./main.tf` let's define our `resource` block
+```tf
+resource "terratowns_home" "home" {
+  name = "How to play Arcanum in 2023!"
+  description = <<DESCRIPTION
+Arcanum is a game from 2001 that shipped with alot of bugs.
+Modders have removed all the originals making this game really fun
+to play (despite that old look graphics). This is my guide that will
+show you how to play arcanum without spoiling the plot.
+DESCRIPTION
+  #domain_name = module.terrahouse_aws.cloudfront_url
+  # Mock CDN below:
+  domain_name = "3fdq3gz.cloudfront.net"
+  town = "gamers-grotto"
+  content_version = 1
+}
+```
+
+Fix the endpoint url in `main.tf` in the `provider` block
+replace `endpoint = "http://localhost:4567"` with -> `endpoint = "http://localhost:4567/api"`
+
+
+
+6.5 Add the code for our actions in `terraform-provider-terratowns/main.go` 
+```sh
+func resourceHouseCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Print("resourceHouseCreate:start")
+	var diags diag.Diagnostics
+
+	config := m.(*Config)
+
+	payload := map[string]interface{}{
+		"name": d.Get("name").(string),   //get values from Payload which comes as raw data and type cast as string
+		"description": d.Get("description").(string),
+		"domain_name": d.Get("domain_name").(string),
+		"town": d.Get("town").(string),
+		"content_version": d.Get("content_version").(int),
+	}
+	payloadBytes, err := json.Marshal(payload) //Marshal is a json function which converts to Byte
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	url :=  config.Endpoint+"/u/"+config.UserUuid+"/homes"
+	log.Print("URL: "+ url)
+	// Construct the HTTP Request
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set Headers
+	req.Header.Set("Authorization", "Bearer "+config.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	defer resp.Body.Close()
+
+	// parse response JSON
+	var responseData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&responseData);  err != nil {
+		return diag.FromErr(err)
+	}
+
+	// StatusOK = 200 HTTP Response Code
+	if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to create home resource, status_code: %d, status: %s, body %s", resp.StatusCode, resp.Status, responseData))
+	}
+
+	// handle response status
+
+	homeUUID := responseData["uuid"].(string)
+	d.SetId(homeUUID)   //since TF wants IDs of resources in the state file
+
+	log.Print("resourceHouseCreate:end")
+
+	return diags
+}
+
+func resourceHouseRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Print("resourceHouseRead:start")
+	var diags diag.Diagnostics
+
+	config := m.(*Config)
+
+	homeUUID := d.Id()
+
+	// Construct the HTTP Request
+	url := config.Endpoint+"/u/"+config.UserUuid+"/homes/"+homeUUID
+	log.Print("URL: "+ url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set Headers
+	req.Header.Set("Authorization", "Bearer "+config.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	defer resp.Body.Close()
+
+	var responseData map[string]interface{}
+
+	if resp.StatusCode == http.StatusOK {
+		// parse response JSON
+		if err := json.NewDecoder(resp.Body).Decode(&responseData);  err != nil {
+			return diag.FromErr(err)
+		}
+		d.Set("name",responseData["name"].(string))
+		d.Set("description",responseData["description"].(string))
+		d.Set("domain_name",responseData["domain_name"].(string))
+		d.Set("content_version",responseData["content_version"].(float64))
+	} else if resp.StatusCode != http.StatusNotFound {
+		d.SetId("")
+	} else if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to read home resource, status_code: %d, status: %s, body %s", resp.StatusCode, resp.Status, responseData))
+	}
+
+	log.Print("resourceHouseRead:end")
+
+	return diags
+}
+
+func resourceHouseUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Print("resourceHouseUpdate:start")
+	var diags diag.Diagnostics
+
+	config := m.(*Config)
+
+	homeUUID := d.Id()
+
+	payload := map[string]interface{}{
+		"name": d.Get("name").(string),
+		"description": d.Get("description").(string),
+		"content_version": d.Get("content_version").(int),
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Construct the HTTP Request
+	url := config.Endpoint+"/u/"+config.UserUuid+"/homes/"+homeUUID
+	log.Print("URL: "+ url)
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set Headers
+	req.Header.Set("Authorization", "Bearer "+config.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	defer resp.Body.Close()
+
+	// StatusOK = 200 HTTP Response Code
+	if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to update home resource, status_code: %d, status: %s", resp.StatusCode, resp.Status))
+	}
+
+	log.Print("resourceHouseUpdate:end")
+
+	d.Set("name",payload["name"])
+	d.Set("description",payload["description"])
+	d.Set("content_version",payload["content_version"])
+	return diags
+}
+
+func resourceHouseDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	log.Print("resourceHouseDelete:start")
+	var diags diag.Diagnostics
+
+	config := m.(*Config)
+
+	homeUUID := d.Id()
+
+	// Construct the HTTP Request
+	url :=  config.Endpoint+"/u/"+config.UserUuid+"/homes/"+homeUUID
+	log.Print("URL: "+ url)
+	req, err := http.NewRequest("DELETE", url , nil)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	// Set Headers
+	req.Header.Set("Authorization", "Bearer "+config.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	defer resp.Body.Close()
+
+	// StatusOK = 200 HTTP Response Code
+	if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to delete home resource, status_code: %d, status: %s", resp.StatusCode, resp.Status))
+	}
+
+	d.SetId("")
+
+	log.Print("resourceHouseDelete:end")
+	return diags
+}
+```
+
+Don't forget the imports for the required packages
+```sh
+	"encoding/json" //  used in resource actions to parse to Byte
+	"net/http" //  used in resource actions 
+	"bytes" //  used in resource actions 
+
+```
+
+6.6 Let's try building our provider and see if there are any errors.
+`./bin/build_provider`
+
+6.7 Lets' run `tf init`, `tf plan` and `tf apply`. Check and fix any errors in the code.
+Check the `terraform.tfstate` file - in case any sensitive data was stored.
+
+Output:
+```tf
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # terratowns_home.home will be created
+  + resource "terratowns_home" "home" {
+      + content_version = 1
+      + description     = <<-EOT
+            Arcanum is a game from 2001 that shipped with alot of bugs.
+            Modders have removed all the originals making this game really fun
+            to play (despite that old look graphics). This is my guide that will
+            show you how to play arcanum without spoiling the plot.
+        EOT
+      + domain_name     = "3fdq3gz.cloudfront.net"
+      + id              = (known after apply)
+      + name            = "How to play Arcanum in 2023!"
+      + town            = "gamers-grotto"
+    }
+
+Plan: 1 to add, 0 to change, 0 to destroy.
+
+───────────────────────────────────────────────
+
+Apply:
+terratowns_home.home: Creating...
+2023-10-05T17:58:00.156Z [INFO]  Starting apply for terratowns_home.home
+2023-10-05T17:58:00.156Z [DEBUG] terratowns_home.home: applying the planned Create change
+2023-10-05T17:58:00.157Z [INFO]  provider.terraform-provider-terratowns_v1.0.0: 2023/10/05 17:58:00 resourceHouseCreate:start: timestamp=2023-10-05T17:58:00.157Z
+2023-10-05T17:58:00.157Z [INFO]  provider.terraform-provider-terratowns_v1.0.0: 2023/10/05 17:58:00 URL: http://localhost:4567/api/u/e328f4ab-b99f-421c-84c9-4ccea042c7d1/homes: timestamp=2023-10-05T17:58:00.157Z
+2023-10-05T17:58:00.160Z [INFO]  provider.terraform-provider-terratowns_v1.0.0: 2023/10/05 17:58:00 resourceHouseCreate:end: timestamp=2023-10-05T17:58:00.159Z
+terratowns_home.home: Creation complete after 0s [id=2a27b8ce-ea87-4ee9-9b54-ef954db4f6bc]
+2023-10-05T17:58:00.161Z [DEBUG] State storage *statemgr.Filesystem declined to persist a state snapshot
+2023-10-05T17:58:00.162Z [DEBUG] provider.stdio: received EOF, stopping recv loop: err="rpc error: code = Unavailable desc = error reading from server: EOF"
+2023-10-05T17:58:00.164Z [DEBUG] provider: plugin process exited: path=.terraform/providers/local.providers/local/terratowns/1.0.0/linux_amd64/terraform-provider-terratowns_v1.0.0 pid=7748
+2023-10-05T17:58:00.164Z [DEBUG] provider: plugin exited
+
+Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
+
+```
+
+O/P in our Sinatra server:
+```sh
+# create - POST /api/homes
+name How to play Arcanum in 2023!
+description Arcanum is a game from 2001 that shipped with alot of bugs.
+Modders have removed all the originals making this game really fun
+to play (despite that old look graphics). This is my guide that will
+show you how to play arcanum without spoiling the plot.
+domain_name 3fdq3gz.cloudfront.net
+content_version 1
+town gamers-grotto
+uuid 2a27b8ce-ea87-4ee9-9b54-ef954db4f6bc
+```
+
+6.8 Make a superficial change in the resource in `main.tf` to test the Update endpoint. Run `tf destory` to test the delete endpoint.
+
+```sh
+# create - POST /api/homes
+name How to play Arcanum in 2023!
+description Arcanum is a game from 2001 that shipped with alot of bugs.
+Modders have removed all the originals making this game really fun
+to play (despite that old look graphics). This is my guide that will
+show you how to play arcanum without spoiling the plot.
+domain_name 3fdq3gz.cloudfront.net
+content_version 1
+town gamers-grotto
+uuid 2a27b8ce-ea87-4ee9-9b54-ef954db4f6bc
+# read - GET /api/homes/:uuid
+# read - GET /api/homes/:uuid
+# update - PUT /api/homes/:uuid
+# read - GET /api/homes/:uuid
+# delete - DELETE /api/homes/:uuid
+
+```
+
+6.9 Add required documentation
+
+6.10 Stage, Commit and Sync 
+
+6.11 Create a PR and Merge this branch `41-terratowns-provider` to the `main` branch.
+
+6.12 Add tags `2.4.0`
+
