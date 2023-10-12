@@ -20,6 +20,6 @@
 
 
 
-![test-house](journal/assets/week-2/home1-nomad-pad.png)
+![test-house](journal/assets/week-2/home2-cooker-cove.png)
 ![test-house](journal/assets/week-2/home-2.png)
 ![test-house](journal/assets/week-2/home-2-cont.png)
