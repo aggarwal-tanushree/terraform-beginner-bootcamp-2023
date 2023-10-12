@@ -5,12 +5,12 @@ terraform {
       version = "1.0.0"
     }
   }
-  #cloud {
-  #  organization = "aggarwaltanushree"
-  #  workspaces {
-  #    name = "terra-house-1"
-  #  }
-  #}
+  cloud {
+    organization = "aggarwaltanushree"
+    workspaces {
+      name = "terra-house-1"
+    }
+  }
 }
 
 provider "terratowns" {
@@ -19,27 +19,38 @@ provider "terratowns" {
   token = var.terratowns_access_token
 }
 
-module "terrahouse_aws" {
-  source = "./modules/terrahouse_aws"
+module "home_krakow_hosting" {
+  source = "./modules/terrahome_aws"
   user_uuid = var.teacherseat_user_uuid
-  index_html_filepath = var.index_html_filepath
-  error_html_filepath = var.error_html_filepath
-  content_version = var.content_version
-  assets_path = var.assets_path
+  public_path = var.krakow.public_path
+  content_version = var.krakow.content_version
 }
 
 resource "terratowns_home" "home" {
-  name = "How to play Pokemon in 2023!"
+  name = "A weekend getway to Krakow!"
   description = <<DESCRIPTION
-Pokémon GO is an Adventure game developed by Niantic, Inc.
-BlueStacks app player is the best platform to play Android games on your PC or 
-Mac for an immersive gaming experience.
-Explore the world alongside Trainers from all over as they uncover Pokémon locations.
+Last weekend I took a short trip to Krakow,
+a city in Poland. This page showcases some of the interesting spots I 
+visited in Krakow.
 DESCRIPTION
-  domain_name = module.terrahouse_aws.cloudfront_url
-  # Mock CDN below:
-  #domain_name = "3fdq3gz.cloudfront.net"
-  #town = "gamers-grotto"
-  town = "missingo"
-  content_version = 1
+  domain_name = module.home_krakow_hosting.domain_name
+  town = "the-nomad-pad"
+  content_version = var.krakow.content_version
+}
+
+module "home_recipe_hosting" {
+  source = "./modules/terrahome_aws"
+  user_uuid = var.teacherseat_user_uuid
+  public_path = var.recipe.public_path
+  content_version = var.recipe.content_version
+}
+
+resource "terratowns_home" "home_recipe" {
+  name = "How to annoy your husband - A Cookbook"
+  description = <<DESCRIPTION
+This is an original cookbook on how to annoy your husband.
+DESCRIPTION
+  domain_name = module.home_recipe_hosting.domain_name
+  town = "cooker-cove"
+  content_version = var.recipe.content_version
 }

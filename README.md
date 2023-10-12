@@ -8,5 +8,18 @@
 - [Week 1 Journal](journal/week1.md)
 - [Week 2 Journal](journal/week2.md)
 
+
 ## Extras
 - [Github Markdown TOC Generator](https://ecotrust-canada.github.io/markdown-toc/)
+
+
+## My Completed Homes
+![test-house](journal/assets/week-2/home1-nomad-pad.png)
+![test-house](journal/assets/week-2/home-1.png)
+![test-house](journal/assets/week-2/home-1-cont.png)
+
+
+
+![test-house](journal/assets/week-2/home1-nomad-pad.png)
+![test-house](journal/assets/week-2/home-2.png)
+![test-house](journal/assets/week-2/home-2-cont.png)
