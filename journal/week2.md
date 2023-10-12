@@ -19,6 +19,13 @@
   * [More Terraform](#more-terraform)
     + [Terraform CLI Config File](#terraform-cli-config-file)
     + [Debugging Terraform](#debugging-terraform)
+- [Configuring Terraform Cloud for Local Execution but Cloud backup of State File](#configuring-terraform-cloud-for-local-execution-but-cloud-backup-of-state-file)
+- [Terrahome AWS Multi Home Refactor](#terrahome-aws-multi-home-refactor)
+  * [Steps to add a new home](#steps-to-add-a-new-home)
+- [Terraform State command](#terraform-state-command)
+  * [terraform state list](#terraform-state-list)
+  * [terraform state show](#terraform-state-show)
+- [Terraform Object variable](#terraform-object-variable)
 
 [Personal Documentation](#personal-documentation) :memo: :pencil:
 
@@ -34,9 +41,7 @@
 | [Resource Skeleton](#resource-skeleton) | <ul><li> [x] </li></ul> |
 | [Implementing CRUD](#implementing-crud) | <ul><li> [x] </li></ul> |
 | [Deploying To Terratowns](#deploying-to-terratowns) | <ul><li> [x] </li></ul> |
-| [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [ ] </li></ul> |
-| [Project Validation](#project-validation) | <ul><li> [ ] </li></ul> |
-
+| [Terraform Cloud And Multi Home Refactor](#terraform-cloud-and-multi-home-refactor) | <ul><li> [x] </li></ul> |
 
 
 # Week 2 Architecture
@@ -199,6 +204,135 @@ Terraform has detailed logs that you can enable by setting the `TF_LOG` environm
 
 `TF_LOG=DEBUG tf init`
 https://developer.hashicorp.com/terraform/internals/debugging
+
+
+## Configuring Terraform Cloud for Local Execution but Cloud backup of State File
+
+https://developer.hashicorp.com/terraform/cloud-docs/run/remote-operations
+
+
+
+## Terrahome AWS Multi Home Refactor
+
+We altered the paths and variables associated to the content to our static Websites, in order to accomodate the creation of more than one home.
+
+### Steps to add a new home
+
+- Add your home to the `terraform.tfvars.example` and the `terraform.tfvars` making sure to change the block for your new content
+    ```tf
+    YOURHOME = {
+      public_path = "/workspace/terraform-beginner-bootcamp-2023/public/YOURHOMEDIRECTORY"
+      content_version = 1 
+    }
+    ```
+- Add you new module to `main.tf` making sure to change the block for your new content
+    ```
+    module "home_YOURHOME" {
+      source = "./modules/terrahome_aws"
+      user_uuid = var.teacherseat_user_uuid
+      public_path = var.YOURHOME.public_path
+      content_version = var.YOURHOME.content_version
+    }
+    ```
+- Add your new resource to `main.tf` making sure to change the block for your new content
+    ```
+    resource "terratowns_home" "YOURHOME" {
+      name = "Travle Blog"
+      description = <<DESCRIPTION
+    add description here
+    DESCRIPTION
+      town = "TOWN"
+      content_version = var.YOURHOME.content_version
+      domain_name = module.YOURNEWMODULE.domain_name
+    }
+    ```
+	
+	Example:
+	```tf
+		module "home_/krakow" {
+		source = "./modules/terrahome_aws"
+		user_uuid = var.teacherseat_user_uuid
+		public_path = var.krakow_public_path
+		content_version = var.content_version
+		}
+```
+
+- Create a new directory under `./public` with your home name. This directory expects the following:
+    - `index.html`
+    - `error.html`
+    - `/assets/`
+        - **All top level files in assets will be copied, but not any subdirectories.**
+
+- `terraform init`
+- `terraform plan`
+- `terraform apply --auto-approve`
+
+
+
+
+## Terraform State command
+The terraform state command is used for advanced state management. As your Terraform usage becomes more advanced, there are some cases where you may need to modify the Terraform state. Rather than modify the state directly, the terraform state commands can be used in many cases instead.
+https://developer.hashicorp.com/terraform/cli/commands/state
+
+### terraform state show
+`terraform state show` command is used to show the attributes of a single resource in the TF state.
+https://developer.hashicorp.com/terraform/cli/commands/state/show
+
+Example:
+```tf
+$ terraform state show 'packet_device.worker'
+# packet_device.worker:
+resource "packet_device" "worker" {
+    billing_cycle = "hourly"
+    created       = "2015-12-17T00:06:56Z"
+    facility      = "ewr1"
+    hostname      = "prod-xyz01"
+    id            = "6015bg2b-b8c4-4925-aad2-f0671d5d3b13"
+    locked        = false
+}
+```
+
+### terraform state list
+The `terraform state list` command is used to list resources within a Terraform state. 
+By deafult it will read the `terraform.tfstate` file if it exists (or read from the state maintained in TF cloud)
+https://developer.hashicorp.com/terraform/cli/commands/state/list
+
+Example:
+```tf
+$ terraform state list
+aws_instance.foo
+aws_instance.bar[0]
+aws_instance.bar[1]
+module.elb.aws_elb.main
+```
+
+
+## Terraform Object variable
+In Terraform, object variables allow you to define complex data structures by grouping multiple simple data types into a single variable. These variables are used to represent structured data and are especially useful when dealing with more complex configurations. Here's an explanation of object variables in Terraform:
+
+**Definition**: Object variables are defined within your Terraform configuration to hold structured data, similar to objects or dictionaries in other programming languages.
+
+**Usage**: You can use object variables to pass structured data, such as configuration settings or parameters, into your Terraform modules or resources.
+
+**Syntax**: To define an object variable, use the `variable` block in your Terraform code, specifying the variable name and its type. The type should be set to `map` with attribute types to define the structure.
+
+Example:
+```tf
+variable "recipe" {
+  type = object({
+    public_path = string
+    content_version = number
+  })
+}
+```
+
+**Accessing Attributes**: You can access the attributes of an object variable using the variable name and dot notation.
+
+Example:
+```tf
+public_path = var.recipe.public_path
+content_version = var.recipe.content_version
+```
 
 -----------------------------------------------------------------------------------------------------
 
@@ -1666,3 +1800,295 @@ gitpod /workspace/terraform-beginner-bootcamp-2023 (46-terratown-test) $
 
 7.17 Add tags `2.5.0`
 
+8. ## Terraform Cloud And Multi Home Refactor
+8.1 Create a new issue in your Github repositiory.
+
+```txt
+Issue name: Multi Home and Terrafrom Cloud 
+Issue description: 
+- [ ]  move our state back to Terraform Cloud with local execution
+- [ ] provision more than one terra home
+- [ ] Test homes in Missingo
+- [ ] Move homes into production
+
+Label: enhancement
+```
+
+8.2 Change state management to `local` 
+We will now switch the state management of our project to `local` i.e. Terraform Cloud will be managing the state of our project.
+
+8.3 On a web browser login to [TF Cloud](https://app.terraform.io/)
+
+8.4 Navigate to your bootcamp project `Workspace` -> `terra-house-1` -> `Settings` -> `General` -> `Default Execution Mode` -> Local
+
+![change-state-remote](assets/week-2/week2-remote-state.png)
+
+8.5 Create a branch for this issue and launch it in Gitpod.
+
+8.6 Uncomment the `cloud provider` in `main.tf`
+
+```tf
+ #cloud {
+  #  organization = "aggarwaltanushree"
+  #  workspaces {
+  #    name = "terra-house-1"
+  #  }
+  #}
+```
+
+8.7 Update `.gitpod.yml` to include the build provider bash script.
+```yml
+source ./bin/build_provider
+```
+
+```yml
+ before: |
+      cd $PROJECT_ROOT
+      source ./bin/set_tf_alias
+      source ./bin/install_terraform_cli
+      source ./bin/generate_tfrc_credentials
+      cp $PROJECT_ROOT/terraform.tfvars.example $PROJECT_ROOT/terraform.tfvars
+      source ./bin/build_provider
+```
+
+8.8 Build the project `./bin/build_provider`
+
+8.9 Run `tf init` and `tf apply`. check if the resources are available under your `TF Cloud Workspace`. Now our TF state file is being managed by Terraform Cloud.
+
+![tf-cloud-state](assets/week-2/week2-tf-cloud.png)
+
+
+#### Working with multiple Terra Homes
+Since we want to be able to have more than one TerraHome, we will refactor our code to accomodate this.
+
+8.10 Rename the directory `modules/terrahouse_aws` to `modules/terrahome_aws`
+
+8.11 Under the `public` directory, create the sub-dirs for the two homes. Move the associated files into the relevant sub-directories.
+
+8.12 Modify the `main.tf` code to have two homes.
+```tf
+module "home_krakow_hosting" {
+  source = "./modules/terrahome_aws"
+  user_uuid = var.teacherseat_user_uuid
+  public_path = var.krakow.public_path
+  content_version = var.krakow.content_version
+}
+
+resource "terratowns_home" "home" {
+  name = "A weekend getway to Krakow!"
+  description = <<DESCRIPTION
+Last weekend I took a short trip to Krakow,
+a city in Poland. This page showcases some of the interesting spots I 
+visited in Krakow.
+DESCRIPTION
+  domain_name = module.home_krakow_hosting.domain_name
+  town = "missingo"
+  content_version = var.krakow.content_version
+}
+
+module "home_recipe_hosting" {
+  source = "./modules/terrahome_aws"
+  user_uuid = var.teacherseat_user_uuid
+  public_path = var.recipe.public_path
+  content_version = var.recipe.content_version
+}
+
+resource "terratowns_home" "home_recipe" {
+  name = "How to annoy your husband - A Cookbook"
+  description = <<DESCRIPTION
+This is an original cookbook on how to annoy your husband.
+DESCRIPTION
+  domain_name = module.home_recipe_hosting.domain_name
+  town = "missingo"
+  content_version = var.recipe.content_version
+}
+```
+
+8.13 Add the updates vars to `terraform.tfvars.example` and `terraform.tfvars` with an object var for the two homes
+```tf
+terratowns_endpoint="https://terratowns.cloud/api"
+krakow = {
+  public_path = "/workspace/terraform-beginner-bootcamp-2023/public/krakow"
+  content_version = 1 
+}
+recipe = {
+  public_path = "/workspace/terraform-beginner-bootcamp-2023/public/recipe"
+  content_version = 1 
+}
+
+
+```
+
+8.14 Modify `variables.tf` for these var objects.
+```tf
+variable "krakow" {
+  type = object({
+    public_path = string
+    content_version = number
+  })
+}
+
+variable "recipe" {
+  type = object({
+    public_path = string
+    content_version = number
+  })
+}
+```
+
+Delete the vars which are no longer being used
+```tf
+variable "index_html_filepath" {
+  type = string
+}
+
+variable "error_html_filepath" {
+  type = string
+}
+
+variable "content_version" {
+  type = number
+}
+
+variable "assets_path" {
+  description = "Path to assets folder"
+  type = string
+}
+```
+
+8.15 Add the associated var in `modules/terrahome_aws/variables.tf`
+```tf
+variable "public_path" {
+  description = "The file path for the public directory"
+  type        = string
+}
+
+```
+Delete the exisitng vars from the file: ``,`error_html_filepath`,`index_html_filepath` and `assets_path`, since we are no longer using these in our code.
+
+8.16 Modify the var references in `modules/terrahome_aws/resource-storage.tf`
+```tf
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "index_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "index.html"
+  source = "${var.public_path}/index.html"
+  content_type = "text/html"
+
+  etag = filemd5("${var.public_path}/index.html")
+  lifecycle {
+    replace_triggered_by = [terraform_data.content_version.output]
+    ignore_changes = [etag]
+  }
+}
+
+resource "aws_s3_object" "upload_assets" {
+  for_each = fileset("${var.public_path}/assets","*.{jpg,png,gif}")
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "assets/${each.key}"
+  source = "${var.public_path}/assets/${each.key}"
+  etag = filemd5("${var.public_path}/assets/${each.key}")
+  lifecycle {
+    replace_triggered_by = [terraform_data.content_version.output]
+    ignore_changes = [etag]
+  }
+}
+
+# https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_object
+resource "aws_s3_object" "error_html" {
+  bucket = aws_s3_bucket.website_bucket.bucket
+  key    = "error.html"
+  source = "${var.public_path}/error.html"
+  content_type = "text/html"
+
+  etag = filemd5("${var.public_path}/error.html")
+  #lifecycle {
+  #  ignore_changes = [etag]
+  #}
+}
+
+```
+
+8.17 Modify the output var name in `terrahome_aws/outputs.tf`. Change `output "cloudfront_url" ` to `output "domain_name"`
+```tf
+output "domain_name" {
+  value = aws_cloudfront_distribution.s3_distribution.domain_name
+}
+```
+
+8.18 Modify the outputs in `outputs.tf` to reflect the updated module name
+```tf
+output "bucket_name" {
+  description = "Bucket name for our static website hosting"
+  value = module.home_krakow_hosting.bucket_name
+}
+
+output "s3_website_endpoint" {
+  description = "S3 Static Website hosting endpoint"
+  value = module.home_krakow_hosting.website_endpoint
+}
+
+output "cloudfront_url" {
+  description = "The CloudFront Distribution Domain Name"
+  value = module.home_krakow_hosting.domain_name
+}
+```
+
+8.19 Update the provider server code in `main.go`
+Lines 283-286
+Add
+```tf
+	// parse response JSON
+	var responseData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&responseData);  err != nil {
+		return diag.FromErr(err)
+	}
+```
+
+For below code
+```
+	// StatusOK = 200 HTTP Response Code
+	if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to update home resource, status_code: %d, status: %s", resp.StatusCode, resp.Status))
+	}
+```
+Replace:
+with
+```tf
+// StatusOK = 200 HTTP Response Code
+	if resp.StatusCode != http.StatusOK {
+		return diag.FromErr(fmt.Errorf("failed to update home resource, status_code: %d, status: %s, body %s", resp.StatusCode, resp.Status, responseData))
+	}
+```
+
+
+Fix type in line 234:
+`} else if resp.StatusCode != http.StatusNotFound {` 
+
+replace with
+`} else if resp.StatusCode == http.StatusNotFound {`
+
+
+8.20 Build the code `./bin/build_provider`, follow it with `tf init`, `tf plan` and `tf apply`.
+Check for errors at each step.
+
+8.21 Check if the towns published to TerraTowns
+
+8.22 `tf destroy`
+
+8.23 Update the homes to move to relevant TerraHouse. Build the code `./bin/build_provider`, follow it with `tf init`, `tf plan` and `tf apply`.
+
+![test-house](assets/week-2/home1-nomad-pad.png)
+![test-house](assets/week-2/home1-nomad-pad-tanushree.png)
+
+![test-house](assets/week-2/home2-cooker-cove.png)
+![test-house](assets/week-2/home2-cooker-cove-tanushree.png)
+
+
+8.24 Add required documentation
+
+8.25 Stage, Commit and Sync 
+
+8.26 Create a PR and Merge this branch `48-multi-home-and-terrafrom-cloud` to the `main` branch.
+
+8.27 Add tags `2.6.0`
