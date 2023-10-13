@@ -45,11 +45,13 @@
 
 
 # Week 2 Architecture
-![week2-architecture](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/6cc6fc3bb3ca792cc74254780928e9d10a4ef099/journal/assets/week-2/Final-ArchitecturalDiagram.png)
 
-The complete end-to-end architecture of what we will achieve at the end of the bootcamp is available [here](https://lucid.app/lucidchart/e3f15b1a-2211-4ddb-8c95-f144c2504db4/edit?invitationId=inv_0873b3c6-c652-463f-9f2b-fa0f1b420823&page=0_0#) 
+![architectural-diagram](assets/week-2/terraform-cloud-project-bootcamp-logical-diagram.png)
 
-_Diagram copyrights: Andrew Brown from ExamPro.co_
+[View in LucidCharts](https://lucid.app/lucidchart/755655f2-15b9-4f33-b05a-34b7ceebe1c1/edit?viewport_loc=-962%2C-785%2C3492%2C1707%2C0_0&invitationId=inv_8e16ae25-3a04-4ede-bf6f-23618dce4a97)
+
+Architecture diagram by Andrew Brown can be viewed [here](https://lucid.app/lucidchart/e3f15b1a-2211-4ddb-8c95-f144c2504db4/edit?invitationId=inv_0873b3c6-c652-463f-9f2b-fa0f1b420823&page=0_0#) 
+
 
 -----------------------------------------------------------------------------------------------------
 # Notes For Revision
