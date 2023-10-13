@@ -1,6 +1,8 @@
 # Terraform Beginner Bootcamp 2023
 
-![architectural-diagram](https://github.com/aggarwal-tanushree/terraform-beginner-bootcamp-2023/blob/31691c4c08b8ec4354e49f900cdcd9770fa0c92e/journal/assets/week-2/Final-ArchitecturalDiagram.png)
+![architectural-diagram](journal/assets/week-2/terraform-cloud-project-bootcamp-logical-diagram.png)
+
+[View in LucidCharts](https://lucid.app/lucidchart/755655f2-15b9-4f33-b05a-34b7ceebe1c1/edit?viewport_loc=-962%2C-785%2C3492%2C1707%2C0_0&invitationId=inv_8e16ae25-3a04-4ede-bf6f-23618dce4a97)
 
 
 ## Weekly Journals
